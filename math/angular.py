@@ -130,23 +130,47 @@ def angle_between(rot1: torch.Tensor, rot2: torch.Tensor, rep=RotationRepresenta
     return angles
 
 
-def svd_rotate(source_points: torch.Tensor, target_points: torch.Tensor):
+def svd_rotate(source_points: torch.Tensor, target_points: torch.Tensor, calc_R=True, calc_t=False, calc_s=False):
     r"""
-    Get the rotation that rotates source points to the corresponding target points. (torch, batch)
+    Get the rotation/translation/scale that transform source points to the corresponding target points. (torch, batch)
+    i.e., min || s * R * source_points + t - target_points || ^ 2.
+    Note: maybe not exactly the mathematical global minimum. I'm not sure.
 
     :param source_points: Source points in shape [batch_size, m, n]. m is the number of the points. n is the dim.
     :param target_points: Target points in shape [batch_size, m, n]. m is the number of the points. n is the dim.
-    :return: Rotation matrices in shape [batch_size, 3, 3] that rotate source points to target points.
+    :param calc_R: Calculate rotation. If false, fix R=I.
+    :param calc_t: Calculate translation. If false, fix t=0.
+    :param calc_s: Calculate scale. If false, fix s=1.
+    :return: Rotation R in shape [batch_size, n, n], translation t in shape [batch_size, n],
+             and scale s in shape [batch_size] that transform source points to target points,
+             and the transformed source points (s * R * source_points + t) in shape [batch_size, m, n].
     """
-    usv = [m.svd() for m in source_points.transpose(1, 2).bmm(target_points)]
-    u = torch.stack([_[0] for _ in usv])
-    v = torch.stack([_[2] for _ in usv])
-    vut = v.bmm(u.transpose(1, 2))
-    for i in range(vut.shape[0]):
-        if vut[i].det() < -0.9:
-            v[i, 2].neg_()
-            vut[i] = v[i].mm(u[i].t())
-    return vut
+    source_points_mean = source_points.mean(dim=1, keepdim=True) if calc_t else torch.zeros_like(source_points[:, :1])
+    target_points_mean = target_points.mean(dim=1, keepdim=True) if calc_t else torch.zeros_like(target_points[:, :1])
+
+    if calc_s:
+        source_points_rms = ((source_points - source_points_mean) * (source_points - source_points_mean)).sum(dim=[1, 2])
+        target_points_rms = ((target_points - target_points_mean) * (target_points - target_points_mean)).sum(dim=[1, 2])
+        scale = (target_points_rms / source_points_rms).sqrt()
+    else:
+        scale = torch.ones_like(source_points[:, 0, 0])
+
+    if calc_R:
+        usv = [m.svd() for m in (source_points - source_points_mean).transpose(1, 2).bmm(target_points - target_points_mean)]
+        u = torch.stack([_[0] for _ in usv])
+        v = torch.stack([_[2] for _ in usv])
+        vut = v.bmm(u.transpose(1, 2))
+        for i in range(vut.shape[0]):
+            if vut[i].det() < -0.9:
+                v[i, 2].neg_()
+                vut[i] = v[i].mm(u[i].t())
+        rotation = vut
+    else:
+        rotation = torch.eye(source_points.shape[2]).repeat(source_points.shape[0], 1, 1).to(source_points.device)
+
+    translation = -scale.view(-1, 1, 1) * rotation.bmm(source_points_mean.transpose(1, 2)) + target_points_mean.transpose(1, 2)
+    transformed_source_points = scale.view(-1, 1, 1) * source_points.bmm(rotation.transpose(1, 2)) + translation.transpose(1, 2)
+    return rotation, translation.squeeze(2), scale, transformed_source_points
 
 
 def generate_random_rotation_matrix(n=1):
