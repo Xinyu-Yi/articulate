@@ -47,7 +47,8 @@ class RotationViewer:
         p.resetDebugVisualizerCamera(cameraDistance=self.camera_distance, cameraYaw=0, cameraPitch=-30,
                                      cameraTargetPosition=[0, 0, 0])
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
-        self.objs = [p.loadURDF('duck_vhacd.urdf', [-i * self.interval, 0, 0], globalScaling=10) for i in range(self.n)]
+        offset = (self.n - 1) * self.interval / 2
+        self.objs = [p.loadURDF('duck_vhacd.urdf', [-i * self.interval + offset, 0, 0], globalScaling=10) for i in range(self.n)]
 
     def disconnect(self):
         r"""

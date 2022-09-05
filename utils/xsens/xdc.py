@@ -1153,7 +1153,7 @@ class Dot:
         resp = await self.client.read_gatt_char(ControlCharacteristic.UUID)
         return ControlCharacteristic.from_bytes(resp)
 
-    # asynchronously read the "Control Characteristic" (sec. 3.1 in the BLE spec)
+    # synchronously read the "Control Characteristic" (sec. 3.1 in the BLE spec)
     def control_read(self):
         return asyncio.get_event_loop().run_until_complete(self.acontrol_read())
 
@@ -1165,6 +1165,33 @@ class Dot:
     # synchronously write the "Control Characteristic" (sec. 3.1 in the BLE spec)
     def control_write(self, control_characteristic: ControlCharacteristic):
         asyncio.get_event_loop().run_until_complete(self.acontrol_write(control_characteristic))
+
+    # asynchronously read the "Orientation Reset Control Characteristic" (sec. 3.6 in the BLE spec)
+    async def aorientation_reset_control_read(self):
+        resp = await self.client.read_gatt_char(OrientationResetControlCharacteristic.UUID)
+        return OrientationResetControlCharacteristic.from_bytes(resp)
+
+    # synchronously read the "Orientation Reset Control Characteristic" (sec. 3.6 in the BLE spec)
+    def orientation_reset_control_read(self):
+        return asyncio.get_event_loop().run_until_complete(self.aorientation_reset_control_read())
+
+    # asynchronously write the "Orientation Reset Control Characteristic" (sec. 3.6 in the BLE spec)
+    async def aorientation_reset_control_write(self, orientation_reset_control_characteristic: OrientationResetControlCharacteristic):
+        msg_bytes = orientation_reset_control_characteristic.to_bytes()
+        await self.client.write_gatt_char(OrientationResetControlCharacteristic.UUID, msg_bytes)
+
+    # synchronously write the "Orientation Reset Control Characteristic" (sec. 3.6 in the BLE spec)
+    def orientation_reset_control_write(self, orientation_reset_control_characteristic: OrientationResetControlCharacteristic):
+        asyncio.get_event_loop().run_until_complete(self.aorientation_reset_control_write(orientation_reset_control_characteristic))
+
+    # asynchronously read the "Orientation Reset Status Characteristic" (sec. 3.7 in the BLE spec)
+    async def aorientation_reset_status_read(self):
+        resp = await self.client.read_gatt_char(OrientationResetStatusCharacteristic.UUID)
+        return OrientationResetStatusCharacteristic.from_bytes(resp)
+
+    # synchronously read the "Orientation Reset Status Characteristic" (sec. 3.7 in the BLE spec)
+    def orientation_reset_status_read(self):
+        return asyncio.get_event_loop().run_until_complete(self.aorientation_reset_status_read())
 
     # asynchronously subscribe to long-payload measurement notifications
     async def along_payload_start_notify(self, callback):
@@ -1373,6 +1400,47 @@ class Dot:
     # synchronously stop the measurement (BLE spec sec. 3.1)
     def stop_streaming(self):
         asyncio.get_event_loop().run_until_complete(self.astop_streaming())
+
+    # asynchronously check if the sensor is streaming the measurement (BLE spec sec. 3.1)
+    async def ais_streaming(self):
+        c = await self.acontrol_read()
+        return c.action == 1
+
+    # synchronously check if the sensor is streaming the measurement (BLE spec sec. 3.1)
+    def is_streaming(self):
+        return asyncio.get_event_loop().run_until_complete(self.ais_streaming())
+
+    # asynchronously reset heading (BLE spec sec. 3.6)
+    # start real-time streaming before calling this
+    async def areset_heading(self):
+        assert await self.ais_streaming(), 'The heading reset must be executed during the measurement'
+        c = await self.aorientation_reset_control_read()
+        c.Type = 1
+        await self.aorientation_reset_control_write(c)
+        ack = await self.aorientation_reset_status_read()
+        if ack.reset_result != 1:
+            print('Reset heading failed. Please try again.')
+
+    # synchronously reset heading (BLE spec sec. 3.6)
+    # start real-time streaming before calling this
+    def reset_heading(self):
+        asyncio.get_event_loop().run_until_complete(self.areset_heading())
+
+    # asynchronously revert heading to default (BLE spec sec. 3.6)
+    # start real-time streaming before calling this
+    async def arevert_heading_to_default(self):
+        assert await self.ais_streaming(), 'The heading revert must be executed during the measurement'
+        c = await self.aorientation_reset_control_read()
+        c.Type = 7
+        await self.aorientation_reset_control_write(c)
+        ack = await self.aorientation_reset_status_read()
+        if ack.reset_result != 1:
+            print('Revert heading failed. Please try again.')
+
+    # synchronously revert heading to default (BLE spec sec. 3.6)
+    # start real-time streaming before calling this
+    def revert_heading_to_default(self):
+        asyncio.get_event_loop().run_until_complete(self.arevert_heading_to_default())
 
 
 # asynchronously returns `True` if the provided `bleak.backends.device.BLEDevice`
@@ -1650,8 +1718,9 @@ if __name__ == '__main__':
         await asyncio.gather(*[d.adevice_report_start_notify(partial(on_device_report, sensor_id=i)) for i, d in enumerate(dots)])
         await asyncio.gather(*[d.amedium_payload_start_notify(partial(on_medium_payload_report, sensor_id=i)) for i, d in enumerate(dots)])
 
-        print('starting ...')
+        print('starting and reset heading ...')
         await asyncio.gather(*[d.astart_streaming(payload_mode=3) for d in dots])
+        await asyncio.gather(*[d.areset_heading() for d in dots])
         await asyncio.sleep(2)
 
         print('stopping ...')
