@@ -4,3 +4,4 @@ r"""
 
 from .mvnx_reader import *
 from .xdc import *
+from .xsens_dot_set import *

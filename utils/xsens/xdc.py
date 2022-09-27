@@ -1058,12 +1058,12 @@ class Dot:
     # (dis)connection methods
 
     # asynchronously establishes a connection to the DOT
-    async def aconnect(self):
-        return await self.client.connect()
+    async def aconnect(self, timeout=10):
+        return await self.client.connect(timeout=timeout)
 
     # synchronously establishes a connection to the DOT
-    def connect(self):
-        return asyncio.get_event_loop().run_until_complete(self.aconnect())
+    def connect(self, timeout=10):
+        return asyncio.get_event_loop().run_until_complete(self.aconnect(timeout))
 
     # asynchronously terminates the connection to the DOT
     async def adisconnect(self):

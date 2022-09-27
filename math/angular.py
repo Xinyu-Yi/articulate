@@ -9,7 +9,7 @@ __all__ = ['RotationRepresentation', 'to_rotation_matrix', 'radian_to_degree', '
            'rotation_matrix_to_r6d', 'quaternion_to_axis_angle', 'axis_angle_to_quaternion',
            'quaternion_to_rotation_matrix', 'rotation_matrix_to_euler_angle', 'euler_angle_to_rotation_matrix',
            'rotation_matrix_to_euler_angle_np', 'euler_angle_to_rotation_matrix_np', 'euler_convert_np',
-           'quaternion_product', 'quaternion_inverse']
+           'quaternion_product', 'quaternion_inverse', 'quaternion_mean']
 
 
 from .general import *
@@ -64,6 +64,17 @@ def degree_to_radian(q):
     """
     return q / 180.0 * np.pi
 
+
+def quaternion_mean(q):
+    r"""
+    Calculate the mean quaternion. (torch)
+
+    :param q: Tensor [N, 4].
+    :return: Tensor [4].
+    """
+    q = q.view(-1, 4)
+    q = q * q[:, int(q.abs().mean(dim=0).argmax())].sign().view(-1, 1).expand(-1, 4)
+    return normalize_tensor(q.mean(dim=0))
 
 def quaternion_product(q1, q2):
     r"""

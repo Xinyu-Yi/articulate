@@ -53,42 +53,50 @@ class Color:
 
 
 def print_red(*args, **kwargs):
-    print(Color.fg.red, *args, **kwargs)
+    print(Color.fg.red, end="")
+    print(*args, **kwargs)
     print(Color.reset, end="")
 
 
 def print_green(*args, **kwargs):
-    print(Color.fg.green, *args, **kwargs)
+    print(Color.fg.green, end="")
+    print(*args, **kwargs)
     print(Color.reset, end="")
 
 
 def print_blue(*args, **kwargs):
-    print(Color.fg.blue, *args, **kwargs)
+    print(Color.fg.blue, end="")
+    print(*args, **kwargs)
     print(Color.reset, end="")
 
 
 def print_cyan(*args, **kwargs):
-    print(Color.fg.cyan, *args, **kwargs)
+    print(Color.fg.cyan, end="")
+    print(*args, **kwargs)
     print(Color.reset, end="")
 
 
 def print_orange(*args, **kwargs):
-    print(Color.fg.orange, *args, **kwargs)
+    print(Color.fg.orange, end="")
+    print(*args, **kwargs)
     print(Color.reset, end="")
 
 
 def print_purple(*args, **kwargs):
-    print(Color.fg.purple, *args, **kwargs)
+    print(Color.fg.purple, end="")
+    print(*args, **kwargs)
     print(Color.reset, end="")
 
 
 def print_yellow(*args, **kwargs):
-    print(Color.fg.yellow, *args, **kwargs)
+    print(Color.fg.yellow, end="")
+    print(*args, **kwargs)
     print(Color.reset, end="")
 
 
 def print_error(*args, **kwargs):
-    print(Color.fg.red, *args, **kwargs, file=sys.stderr)
+    print(Color.fg.red, end="")
+    print(*args, **kwargs, file=sys.stderr)
     print(Color.reset, end="")
 
 
