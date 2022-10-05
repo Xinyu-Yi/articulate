@@ -7,6 +7,7 @@ __all__ = ['XsensDotSet']
 
 
 import asyncio
+import time
 from .xdc import *
 from queue import Queue
 import torch
@@ -20,6 +21,7 @@ class XsensDotSet:
     # _lock = [threading.Lock() for _ in range(_N)]   # lists are thread-safe
     _buffer = [Queue(_SZ) for _ in range(_N)]
     _is_start = False
+    _pending_event = None
 
     @staticmethod
     def _on_device_report(message_id, message_bytes, sensor_id=-1):
@@ -66,22 +68,43 @@ class XsensDotSet:
         for i, d in enumerate(dots):
             await d.adevice_report_start_notify(partial(XsensDotSet._on_device_report, sensor_id=i))
             await d.amedium_payload_start_notify(partial(XsensDotSet._on_medium_payload_report, sensor_id=i))
+            await d.aset_output_rate(60)
             await d.astart_streaming(payload_mode=3)
-            # await d.areset_output_rate()
 
         print('sensor started')
         XsensDotSet._is_start = True
-        XsensDotSet._dots = dots
-        while XsensDotSet._is_start:
+        while True:
+            if XsensDotSet._pending_event == 0:   # close
+                shutdown = False
+                break
+            elif XsensDotSet._pending_event == 1:   # shutdown
+                shutdown = True
+                break
+            elif XsensDotSet._pending_event == 2:   # reset heading
+                for i, d in enumerate(dots):
+                    await d.areset_heading()
+                print('heading is reset')
+            elif XsensDotSet._pending_event == 3:   # revert heading
+                for i, d in enumerate(dots):
+                    await d.arevert_heading_to_default()
+                print('heading is reverted to default')
+
+            XsensDotSet._pending_event = None
             await asyncio.sleep(1)
 
-        for d in dots:
+        print('disconnecting ...')
+        for i, d in enumerate(dots):
             await d.astop_streaming()
             await d.amedium_payload_stop_notify()
             await d.adevice_report_stop_notify()
-            await d.adisconnect()
-            # await d.apower_off()
-        print('sensor stopped')
+            if shutdown:
+                await d.apower_off()
+                print('\t[%d] power off' % i)
+            else:
+                await d.adisconnect()
+                print('\t[%d] disconnected' % i)
+
+        XsensDotSet._is_start = False
 
     @staticmethod
     def _run_in_new_thread(coro):
@@ -98,6 +121,11 @@ class XsensDotSet:
         thread.setDaemon(True)
         thread.start()
         asyncio.run_coroutine_threadsafe(coro, loop)
+
+    @staticmethod
+    def _wait_for_pending_event():
+        while XsensDotSet._pending_event is not None:
+            time.sleep(0.3)
 
     @staticmethod
     def clear(i=-1):
@@ -133,9 +161,10 @@ class XsensDotSet:
         return t, q, a
 
     @staticmethod
-    def connect(devices: list):
+    def async_connect(devices: list):
         r"""
         Connect to the sensors and start receiving the measurements.
+        Only send the connecting command but will not be blocked.
 
         :param devices: List of Xsens dot addresses.
         """
@@ -143,11 +172,65 @@ class XsensDotSet:
         XsensDotSet._run_in_new_thread(XsensDotSet._multiple_sensor(devices))
 
     @staticmethod
-    def disconnect():
+    def sync_connect(devices: list):
+        r"""
+        Connect to the sensors and start receiving the measurements. Block until finish.
+
+        :param devices: List of Xsens dot addresses.
+        """
+        XsensDotSet.async_connect(devices)
+        while not XsensDotSet.is_started():
+            time.sleep(1)
+
+    @staticmethod
+    def async_disconnect():
         r"""
         Stop reading and disconnect to the sensors.
+        Only send the disconnecting command but will not be blocked.
         """
-        XsensDotSet._is_start = False
+        XsensDotSet._pending_event = 0
+
+    @staticmethod
+    def sync_disconnect():
+        r"""
+        Stop reading and disconnect to the sensors. Block until finish.
+        """
+        XsensDotSet.async_disconnect()
+        while XsensDotSet.is_started():
+            time.sleep(1)
+
+    @staticmethod
+    def async_shutdown():
+        r"""
+        Stop reading and shutdown the sensors.
+        Only send the shutdown command but will not be blocked.
+        """
+        XsensDotSet._pending_event = 1
+
+    @staticmethod
+    def sync_shutdown():
+        r"""
+        Stop reading and shutdown the sensors. Block until finish.
+        """
+        XsensDotSet.async_shutdown()
+        while XsensDotSet.is_started():
+            time.sleep(1)
+
+    @staticmethod
+    def reset_heading():
+        r"""
+        Reset sensor heading (yaw).
+        """
+        XsensDotSet._pending_event = 2
+        XsensDotSet._wait_for_pending_event()
+
+    @staticmethod
+    def revert_heading_to_default():
+        r"""
+        Revert sensor heading to default (yaw).
+        """
+        XsensDotSet._pending_event = 3
+        XsensDotSet._wait_for_pending_event()
 
 
 # example
@@ -168,10 +251,12 @@ if __name__ == '__main__':
         'D4:22:CD:00:46:0F',
         'D4:22:CD:00:32:32',
     ]
-    XsensDotSet.connect(imus)
-    with RotationViewer(3) as viewer:
+    XsensDotSet.sync_connect(imus)
+    XsensDotSet.reset_heading()
+    with RotationViewer(len(imus)) as viewer:
+        XsensDotSet.clear()
         for _ in range(60 * 10):  # 10s
-            for i in range(3):
+            for i in range(len(imus)):
                 t, q, a = XsensDotSet.get(i)
                 viewer.update(quaternion_to_rotation_matrix(q).view(3, 3), i)
-    XsensDotSet.disconnect()
+    XsensDotSet.sync_disconnect()
