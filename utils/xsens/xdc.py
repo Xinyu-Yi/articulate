@@ -1034,8 +1034,7 @@ class Dot:
     # (`with Dot(ble) as dot`), or (better again) an async context manager
     # (`async with Dot(ble) as dot`) to setup/teardown the connection
     def __init__(self, ble_device):
-        self.dev = ble_device
-        self.client = BleakClient(self.dev.address)
+        self.client = BleakClient(ble_device)
 
     # automatically called when entering `async with` blocks
     async def __aenter__(self):
@@ -1475,47 +1474,45 @@ def is_dot(bledevice):
 # asynchronously returns a list of all (not just DOT) BLE devices that
 # the host's bluetooth adaptor can see. Each element in the list is an
 # instance of `bleak.backends.device.BLEDevice`
-async def ascan_all():
-    async with BleakScanner() as scanner:
-        return list(await scanner.discover())
+async def ascan_all(timeout=5):
+    return await BleakScanner.discover(timeout=timeout)
 
 
 # synchronously returns a list of all (not just DOT) BLE devices that the
 # host's bluetooth adaptor can see. Each element in the list is an instance
 # of `bleak.backends.device.BLEDevice`
-def scan_all():
-    return asyncio.get_event_loop().run_until_complete(ascan_all())
+def scan_all(timeout=5):
+    return asyncio.get_event_loop().run_until_complete(ascan_all(timeout=timeout))
 
 
 # asynchronously returns a list of all XSens DOTs that the host's bluetooth
 # adaptor can see. Each element in the list is an instance of
 # `bleak.backends.device.BLEDevice`
-async def ascan():
-    return [d for d in await ascan_all() if await ais_dot(d)]
+async def ascan(timeout=5):
+    return [d for d in await ascan_all(timeout=timeout) if await ais_dot(d)]
 
 
 # synchronously returns a list of all XSens DOTs that the host's bluetooth
 # adaptor can see. Each element in the list is an instance of
 # `bleak.backends.device.BLEDevice`
-def scan():
-    return asyncio.get_event_loop().run_until_complete(ascan())
+def scan(timeout=5):
+    return asyncio.get_event_loop().run_until_complete(ascan(timeout=timeout))
 
 
 # asynchronously returns a BLE device with the given identifier/address
 #
 # returns `None` if the device cannot be found (e.g. no connection, wrong
 # address)
-async def afind_by_address(device_identifier):
-    async with BleakScanner() as scanner:
-        return await scanner.find_device_by_address(device_identifier)
+async def afind_by_address(device_identifier, timeout=5):
+    return await BleakScanner.find_device_by_address(device_identifier, timeout=timeout)
 
 
 # synchronously returns a BLE device with the given identifier/address
 #
 # returns `None` if the device cannot be found (e.g. no connection, wrong
 # address)
-def find_by_address(device_identifier):
-    return asyncio.get_event_loop().run_until_complete(afind_by_address(device_identifier))
+def find_by_address(device_identifier, timeout=5):
+    return asyncio.get_event_loop().run_until_complete(afind_by_address(device_identifier, timeout=timeout))
 
 
 # asynchronously returns a BLE device with the given identifier/address if the
@@ -1523,8 +1520,8 @@ def find_by_address(device_identifier):
 #
 # effectively, the same as `afind_by_address` but with the extra stipulation that
 # the given device must be a DOT
-async def afind_dot_by_address(device_identifier):
-    dev = await afind_by_address(device_identifier)
+async def afind_dot_by_address(device_identifier, timeout=5):
+    dev = await afind_by_address(device_identifier, timeout=timeout)
 
     if dev is None:
         return None  # device cannot be found
@@ -1539,8 +1536,8 @@ async def afind_dot_by_address(device_identifier):
 #
 # effectively, the same as `find_by_address`, but with the extra stipulation that
 # the given device must be a DOT
-def find_dot_by_address(device_identifier):
-    return asyncio.get_event_loop().run_until_complete(afind_dot_by_address(device_identifier))
+def find_dot_by_address(device_identifier, timeout=5):
+    return asyncio.get_event_loop().run_until_complete(afind_dot_by_address(device_identifier, timeout=timeout))
 
 
 # low-level characteristic accessors (free functions)

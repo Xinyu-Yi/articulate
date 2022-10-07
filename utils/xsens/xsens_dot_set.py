@@ -45,7 +45,15 @@ class XsensDotSet:
         print('finding devices ...')
         dots = []
         for i, d in enumerate(devices):
-            device = await afind_by_address(d)
+            while True:
+                try:
+                    device = await afind_by_address(d, timeout=5)
+                    if device is None:
+                        print('\t[%d]' % i, 'device not detected')
+                    else:
+                        break
+                except Exception as e:
+                    print('\t[%d]' % i, e)
             dots.append(Dot(device))
             print('\t[%d]' % i, device)
 
@@ -53,7 +61,7 @@ class XsensDotSet:
         for i, d in enumerate(dots):
             while True:
                 try:
-                    await d.aconnect(timeout=5)
+                    await d.aconnect(timeout=8)
                     break
                 except Exception as e:
                     print('\t[%d]' % i, e)
