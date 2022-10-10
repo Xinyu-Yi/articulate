@@ -9,7 +9,7 @@ __all__ = ['XsensDotSet']
 import asyncio
 import time
 from .xdc import *
-from queue import Queue
+from queue import Queue, Empty
 import torch
 
 
@@ -74,10 +74,12 @@ class XsensDotSet:
 
         print('starting the sensors ...')
         for i, d in enumerate(dots):
+            await d.astop_streaming()
             await d.adevice_report_start_notify(partial(XsensDotSet._on_device_report, sensor_id=i))
             await d.amedium_payload_start_notify(partial(XsensDotSet._on_medium_payload_report, sensor_id=i))
             await d.aset_output_rate(60)
             await d.astart_streaming(payload_mode=3)
+            print('\t[%d] is heading reset:' % i, await d.ais_heading_reset())
 
         print('sensor started')
         XsensDotSet._is_start = True
@@ -162,7 +164,12 @@ class XsensDotSet:
         :param i: The index of the query sensor.
         :return: timestamp (seconds), quaternion (wxyz), and free acceleration (m/s^2 in the global inertial frame)
         """
-        parsed = XsensDotSet._buffer[i].get(block=True)
+        while True:
+            try:
+                parsed = XsensDotSet._buffer[i].get(block=True, timeout=1)
+                break
+            except Empty:
+                print('[warning] get(): buffer for sensor %d is empty for 1 second' % i)
         t = parsed.timestamp.microseconds / 1e6
         q = torch.tensor([parsed.quaternion.w, parsed.quaternion.x, parsed.quaternion.y, parsed.quaternion.z])
         a = torch.tensor([parsed.free_acceleration.x, parsed.free_acceleration.y, parsed.free_acceleration.z])

@@ -1380,6 +1380,9 @@ class Dot:
     # asynchronously start the measurement (BLE spec sec. 3.1)
     # enable BLE notification to get the measurement data for real-time streaming before calling this
     async def astart_streaming(self, payload_mode=3):
+        while await self.ais_streaming():
+            await self.astop_streaming()
+            await asyncio.sleep(3)
         c = await self.acontrol_read()
         c.action = 1
         c.payload_mode = payload_mode
@@ -1413,6 +1416,9 @@ class Dot:
     # start real-time streaming before calling this
     async def areset_heading(self):
         assert await self.ais_streaming(), 'The heading reset must be executed during the measurement'
+        while await self.ais_heading_reset():
+            await self.arevert_heading_to_default()
+            await asyncio.sleep(3)
         c = await self.aorientation_reset_control_read()
         c.Type = 1
         await self.aorientation_reset_control_write(c)
@@ -1432,14 +1438,21 @@ class Dot:
         c = await self.aorientation_reset_control_read()
         c.Type = 7
         await self.aorientation_reset_control_write(c)
-        ack = await self.aorientation_reset_status_read()
-        if ack.reset_result != 1:
-            print('Revert heading failed. Please try again.')
 
     # synchronously revert heading to default (BLE spec sec. 3.6)
     # start real-time streaming before calling this
     def revert_heading_to_default(self):
         asyncio.get_event_loop().run_until_complete(self.arevert_heading_to_default())
+
+    # asynchronously check if heading has been reset (BLE spec sec. 3.6)
+    async def ais_heading_reset(self):
+        assert await self.ais_streaming(), 'The heading reset must be executed during the measurement'
+        c = await self.aorientation_reset_control_read()
+        return c.Type == 1
+
+    # synchronously check if heading has been reset (BLE spec sec. 3.6)
+    def is_heading_reset(self):
+        asyncio.get_event_loop().run_until_complete(self.ais_heading_reset())
 
 
 # asynchronously returns `True` if the provided `bleak.backends.device.BLEDevice`
