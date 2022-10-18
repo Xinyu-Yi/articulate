@@ -9,7 +9,7 @@ __all__ = ['RotationRepresentation', 'to_rotation_matrix', 'radian_to_degree', '
            'rotation_matrix_to_r6d', 'quaternion_to_axis_angle', 'axis_angle_to_quaternion',
            'quaternion_to_rotation_matrix', 'rotation_matrix_to_euler_angle', 'euler_angle_to_rotation_matrix',
            'rotation_matrix_to_euler_angle_np', 'euler_angle_to_rotation_matrix_np', 'euler_convert_np',
-           'quaternion_product', 'quaternion_inverse', 'quaternion_mean']
+           'quaternion_product', 'quaternion_inverse', 'quaternion_mean', 'generate_random_rotation_matrix_constrained']
 
 
 from .general import *
@@ -200,6 +200,22 @@ def generate_random_rotation_matrix(n=1):
         q[mask] = torch.rand_like(q[mask]) * 2 - 1
     q = q / q.norm(dim=1, keepdim=True)
     return quaternion_to_rotation_matrix(q)
+
+
+def generate_random_rotation_matrix_constrained(n=1, y=(-180, 180), p=(-90, 90), r=(-180, 180)):
+    r"""
+    Generate random rotation matrices with rpy constraints. Rotation in local Y(y)-X(p)-Z(r) order. (torch, batch)
+
+    :param n: Number of rotation matrices to generate.
+    :param y: Yaw range in degrees.
+    :param p: Pitch range in degrees.
+    :param r: Roll range in degrees.
+    :return: Random rotation matrices of shape [n, 3, 3].
+    """
+    ry = degree_to_radian(lerp(y[0], y[1], torch.rand(n)))
+    rp = degree_to_radian(lerp(p[0], p[1], torch.rand(n)))
+    rr = degree_to_radian(lerp(r[0], r[1], torch.rand(n)))
+    return euler_angle_to_rotation_matrix(torch.stack((ry, rp, rr), dim=1), seq='YXZ')
 
 
 def axis_angle_to_rotation_matrix(a: torch.Tensor):
