@@ -374,7 +374,7 @@ class ParametricModel:
             cv2.imshow('overlay', im)
             cv2.waitKey(0)
         else:
-            writer = cv2.VideoWriter('a.avi', cv2.VideoWriter_fourcc(*'avc1'), fps, (images[0].shape[1], images[0].shape[0]))
+            writer = cv2.VideoWriter('a.avi', cv2.VideoWriter_fourcc(*'MJPG'), fps, (images[0].shape[1], images[0].shape[0]))
             for i in tqdm.trange(len(verts)):
                 mesh.vertices = vo3d.o3d.utility.Vector3dVector(verts[i])
                 mesh.compute_vertex_normals()
