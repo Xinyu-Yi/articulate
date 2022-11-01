@@ -4,7 +4,8 @@ r"""
 
 
 __all__ = ['remove_collision', 'change_color', 'load_debug_params_into_bullet_from_json',
-           'read_debug_param_values_from_bullet', 'read_debug_param_values_from_json', 'save_debug_params_to_json']
+           'read_debug_param_values_from_bullet', 'read_debug_param_values_from_json', 'save_debug_params_to_json',
+           'Button']
 
 
 import pybullet as p
@@ -82,3 +83,36 @@ def save_debug_params_to_json(param_values=None, file_path='saved_debug_params.j
 
     with open(file_path, 'w') as f:
         json.dump(_param_attrs, f)
+
+
+class Button:
+    r"""
+    Add a pybullet button.
+    """
+    def __init__(self, name: str, pybullet_server_id=0):
+        r"""
+        Add a debug pybullet button to GUI.
+
+        :param name: Button name.
+        :param pybullet_server_id: Pybullet server id.
+        """
+        self.pid = pybullet_server_id
+        self.btn = p.addUserDebugParameter(' %s ' % name, 1, 0, 0, pybullet_server_id)
+        self.n = 0
+
+    def is_click(self) -> bool:
+        r"""
+        Check if the button is clicked.
+
+        :return: True if the button is once clicked since the last call.
+        """
+        c = p.readUserDebugParameter(self.btn, self.pid)
+        r = c != self.n
+        self.n = c
+        return r
+
+    def num_clicks(self) -> int:
+        r"""
+        Return the total number of clicks.
+        """
+        return int(p.readUserDebugParameter(self.btn, self.pid))

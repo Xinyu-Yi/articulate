@@ -19,8 +19,10 @@ _SZ = 180  # max queue size
 
 class XsensDotSet:
     # _lock = [threading.Lock() for _ in range(_N)]   # lists are thread-safe
+    _loop = None
     _buffer = [Queue(_SZ) for _ in range(_N)]
-    _is_start = False
+    _is_connected = False
+    _is_started = False
     _pending_event = None
 
     @staticmethod
@@ -72,17 +74,16 @@ class XsensDotSet:
             info = await d.abattery_read()
             print('\t[%d] %d%%' % (i, info.battery_level))
 
-        print('starting the sensors ...')
+        print('configuring the sensors ...')
         for i, d in enumerate(dots):
             await d.astop_streaming()
             await d.adevice_report_start_notify(partial(XsensDotSet._on_device_report, sensor_id=i))
             await d.amedium_payload_start_notify(partial(XsensDotSet._on_medium_payload_report, sensor_id=i))
             await d.aset_output_rate(60)
-            await d.astart_streaming(payload_mode=3)
-            print('\t[%d] is heading reset:' % i, await d.ais_heading_reset())
 
-        print('sensor started')
-        XsensDotSet._is_start = True
+        print('sensors connected')
+        XsensDotSet._is_connected = True
+
         while True:
             if XsensDotSet._pending_event == 0:   # close
                 shutdown = False
@@ -91,13 +92,32 @@ class XsensDotSet:
                 shutdown = True
                 break
             elif XsensDotSet._pending_event == 2:   # reset heading
+                print('reset heading ...')
                 for i, d in enumerate(dots):
                     await d.areset_heading()
-                print('heading is reset')
+                print('\theading is reset')
             elif XsensDotSet._pending_event == 3:   # revert heading
+                print('revert heading ...')
                 for i, d in enumerate(dots):
                     await d.arevert_heading_to_default()
-                print('heading is reverted to default')
+                print('\theading is reverted to default')
+            elif XsensDotSet._pending_event == 4:   # start streaming
+                print('start streaming ...')
+                for i, d in enumerate(dots):
+                    await d.astart_streaming(payload_mode=3)
+                XsensDotSet._is_started = True
+                print('\tstreaming started')
+            elif XsensDotSet._pending_event == 5:  # stop streaming
+                print('stop streaming ...')
+                for i, d in enumerate(dots):
+                    await d.astop_streaming()
+                XsensDotSet._is_started = False
+                print('\tstreaming stopped')
+            elif XsensDotSet._pending_event == 6:  # print battery
+                print('reading battery infos ...')
+                for i, d in enumerate(dots):
+                    info = await d.abattery_read()
+                    print('\t[%d] %d%%' % (i, info.battery_level))
 
             XsensDotSet._pending_event = None
             await asyncio.sleep(1)
@@ -114,7 +134,9 @@ class XsensDotSet:
                 await d.adisconnect()
                 print('\t[%d] disconnected' % i)
 
-        XsensDotSet._is_start = False
+        XsensDotSet._is_started = False
+        XsensDotSet._is_connected = False
+        XsensDotSet._pending_event = None
 
     @staticmethod
     def _run_in_new_thread(coro):
@@ -125,12 +147,14 @@ class XsensDotSet:
             asyncio.set_event_loop(_loop)
             _loop.run_forever()
 
-        import threading
-        loop = asyncio.new_event_loop()
-        thread = threading.Thread(target=start_loop, args=(loop,))
-        thread.setDaemon(True)
-        thread.start()
-        asyncio.run_coroutine_threadsafe(coro, loop)
+        if XsensDotSet._loop is None:
+            import threading
+            XsensDotSet._loop = asyncio.new_event_loop()
+            thread = threading.Thread(target=start_loop, args=(XsensDotSet._loop,))
+            thread.setDaemon(True)
+            thread.start()
+
+        asyncio.run_coroutine_threadsafe(coro, XsensDotSet._loop)
 
     @staticmethod
     def _wait_for_pending_event():
@@ -152,9 +176,16 @@ class XsensDotSet:
     @staticmethod
     def is_started() -> bool:
         r"""
-        Whether the sensors are connected and started.
+        Whether the sensors are started.
         """
-        return XsensDotSet._is_start
+        return XsensDotSet._is_started
+
+    @staticmethod
+    def is_connected() -> bool:
+        r"""
+        Whether the sensors are connected.
+        """
+        return XsensDotSet._is_connected
 
     @staticmethod
     def get(i: int):
@@ -183,8 +214,11 @@ class XsensDotSet:
 
         :param devices: List of Xsens dot addresses.
         """
-        print('Remember: use xsens dot app to synchronize the sensors first.')
-        XsensDotSet._run_in_new_thread(XsensDotSet._multiple_sensor(devices))
+        if not XsensDotSet.is_connected():
+            print('Remember: use xsens dot app to synchronize the sensors first.')
+            XsensDotSet._run_in_new_thread(XsensDotSet._multiple_sensor(devices))
+        else:
+            print('[Warning] connect failed: XsensDotSet is already connected.')
 
     @staticmethod
     def sync_connect(devices: list):
@@ -194,7 +228,7 @@ class XsensDotSet:
         :param devices: List of Xsens dot addresses.
         """
         XsensDotSet.async_connect(devices)
-        while not XsensDotSet.is_started():
+        while not XsensDotSet.is_connected():
             time.sleep(1)
 
     @staticmethod
@@ -203,7 +237,10 @@ class XsensDotSet:
         Stop reading and disconnect to the sensors.
         Only send the disconnecting command but will not be blocked.
         """
-        XsensDotSet._pending_event = 0
+        if XsensDotSet.is_connected():
+            XsensDotSet._pending_event = 0
+        else:
+            print('[Warning] disconnect failed: XsensDotSet is not connected.')
 
     @staticmethod
     def sync_disconnect():
@@ -211,7 +248,7 @@ class XsensDotSet:
         Stop reading and disconnect to the sensors. Block until finish.
         """
         XsensDotSet.async_disconnect()
-        while XsensDotSet.is_started():
+        while XsensDotSet.is_connected():
             time.sleep(1)
 
     @staticmethod
@@ -220,7 +257,10 @@ class XsensDotSet:
         Stop reading and shutdown the sensors.
         Only send the shutdown command but will not be blocked.
         """
-        XsensDotSet._pending_event = 1
+        if XsensDotSet.is_connected():
+            XsensDotSet._pending_event = 1
+        else:
+            print('[Warning] shutdown failed: XsensDotSet is not connected.')
 
     @staticmethod
     def sync_shutdown():
@@ -228,7 +268,7 @@ class XsensDotSet:
         Stop reading and shutdown the sensors. Block until finish.
         """
         XsensDotSet.async_shutdown()
-        while XsensDotSet.is_started():
+        while XsensDotSet.is_connected():
             time.sleep(1)
 
     @staticmethod
@@ -236,16 +276,59 @@ class XsensDotSet:
         r"""
         Reset sensor heading (yaw).
         """
-        XsensDotSet._pending_event = 2
-        XsensDotSet._wait_for_pending_event()
+        if XsensDotSet.is_started():
+            XsensDotSet._pending_event = 2
+            XsensDotSet._wait_for_pending_event()
+        else:
+            print('[Warning] reset heading failed: XsensDotSet is not started.')
 
     @staticmethod
     def revert_heading_to_default():
         r"""
         Revert sensor heading to default (yaw).
         """
-        XsensDotSet._pending_event = 3
-        XsensDotSet._wait_for_pending_event()
+        if XsensDotSet.is_started():
+            XsensDotSet._pending_event = 3
+            XsensDotSet._wait_for_pending_event()
+        else:
+            print('[Warning] revert heading failed: XsensDotSet is not started.')
+
+    @staticmethod
+    def start_streaming():
+        r"""
+        Start sensor streaming.
+        """
+        if not XsensDotSet.is_connected():
+            print('[Warning] start streaming failed: XsensDotSet is not connected.')
+        elif XsensDotSet.is_started():
+            print('[Warning] start streaming failed: XsensDotSet is already started.')
+        else:
+            XsensDotSet._pending_event = 4
+            XsensDotSet._wait_for_pending_event()
+
+    @staticmethod
+    def stop_streaming():
+        r"""
+        Stop sensor streaming.
+        """
+        if not XsensDotSet.is_connected():
+            print('[Warning] stop streaming failed: XsensDotSet is not connected.')
+        elif not XsensDotSet.is_started():
+            print('[Warning] stop streaming failed: XsensDotSet is not started.')
+        else:
+            XsensDotSet._pending_event = 5
+            XsensDotSet._wait_for_pending_event()
+
+    @staticmethod
+    def print_battery_info():
+        r"""
+        Print battery level infos.
+        """
+        if not XsensDotSet.is_connected():
+            print('[Warning] print battery info failed: XsensDotSet is not connected.')
+        else:
+            XsensDotSet._pending_event = 6
+            XsensDotSet._wait_for_pending_event()
 
 
 # example
@@ -267,6 +350,7 @@ if __name__ == '__main__':
         'D4:22:CD:00:32:32',
     ]
     XsensDotSet.sync_connect(imus)
+    XsensDotSet.start_streaming()
     XsensDotSet.reset_heading()
     with RotationViewer(len(imus)) as viewer:
         XsensDotSet.clear()

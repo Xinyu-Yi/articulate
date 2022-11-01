@@ -271,7 +271,7 @@ def rotation_matrix_to_r6d(r: torch.Tensor):
     :param r: Rotation matrix tensor that can reshape to [batch_size, 3, 3].
     :return: 6D vector tensor of shape [batch_size, 6].
     """
-    return r.view(-1, 3, 3)[:, :, :2].transpose(1, 2).clone().view(-1, 6)
+    return r.view(-1, 3, 3)[:, :, :2].transpose(1, 2).contiguous().clone().view(-1, 6)
 
 
 def quaternion_to_axis_angle(q: torch.Tensor):
