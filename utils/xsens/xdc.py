@@ -1418,7 +1418,7 @@ class Dot:
         assert await self.ais_streaming(), 'The heading reset must be executed during the measurement'
         while await self.ais_heading_reset():
             await self.arevert_heading_to_default()
-            await asyncio.sleep(3)
+            await asyncio.sleep(0.5)
         c = await self.aorientation_reset_control_read()
         c.Type = 1
         await self.aorientation_reset_control_write(c)

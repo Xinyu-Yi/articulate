@@ -2,13 +2,24 @@ r"""
     An example of Xsens Dot client.
 """
 
+import time
 import socket
 import numpy as np
 
-n_imus = 2   # must be the same as the server
+n_imus = 6   # must be the same as the server
 cs = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 cs.bind(('127.0.0.1', 8777))
 cs.settimeout(5)
+
+# clear the udp buffer
+while True:
+    t1 = time.time()
+    cs.recvfrom(int(32 * n_imus))
+    cs.recvfrom(int(32 * n_imus))
+    cs.recvfrom(int(32 * n_imus))
+    t2 = time.time()
+    if t2 - t1 > 2.5 / 60:
+        break
 
 while True:
     try:

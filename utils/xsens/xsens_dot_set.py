@@ -188,19 +188,15 @@ class XsensDotSet:
         return XsensDotSet._is_connected
 
     @staticmethod
-    def get(i: int):
+    def get(i: int, timeout=None):
         r"""
         Get the next measurements of the ith IMU. May be blocked.
 
         :param i: The index of the query sensor.
+        :param timeout: If non-negative, block at most timeout seconds and raise an Empty error.
         :return: timestamp (seconds), quaternion (wxyz), and free acceleration (m/s^2 in the global inertial frame)
         """
-        while True:
-            try:
-                parsed = XsensDotSet._buffer[i].get(block=True, timeout=1)
-                break
-            except Empty:
-                print('[warning] get(): buffer for sensor %d is empty for 1 second' % i)
+        parsed = XsensDotSet._buffer[i].get(block=True, timeout=timeout)
         t = parsed.timestamp.microseconds / 1e6
         q = torch.tensor([parsed.quaternion.w, parsed.quaternion.x, parsed.quaternion.y, parsed.quaternion.z])
         a = torch.tensor([parsed.free_acceleration.x, parsed.free_acceleration.y, parsed.free_acceleration.z])

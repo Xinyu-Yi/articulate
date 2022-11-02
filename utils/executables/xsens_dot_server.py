@@ -4,6 +4,7 @@ r"""
 
 
 import torch
+from queue import Empty
 from articulate.utils.xsens import XsensDotSet
 from articulate.utils.bullet.bullet import Button
 from articulate.utils.bullet.view_rotation_np import RotationViewer
@@ -14,10 +15,10 @@ import numpy as np
 imus_addr = [
     'D4:22:CD:00:36:03',
     'D4:22:CD:00:44:6E',
-    # 'D4:22:CD:00:45:E6',
-    # 'D4:22:CD:00:45:EC',
-    # 'D4:22:CD:00:46:0F',
-    # 'D4:22:CD:00:32:32',
+    'D4:22:CD:00:45:E6',
+    'D4:22:CD:00:45:EC',
+    'D4:22:CD:00:46:0F',
+    'D4:22:CD:00:32:32',
     # 'D4:22:CD:00:36:80',
     # 'D4:22:CD:00:36:04',
     # 'D4:22:CD:00:32:3E',
@@ -66,12 +67,17 @@ while True:
         break
 
     if XsensDotSet.is_started():
-        T, Q, A = [], [], []
-        for i in range(len(imus_addr)):
-            t, q, a = XsensDotSet.get(i)
-            T.append(t)
-            Q.append(q)
-            A.append(a)
-            viewer.update(q.numpy()[[1, 2, 3, 0]], i)
-        data = torch.cat((torch.tensor(T), torch.cat(Q), torch.cat(A)))
-        ss.sendto(data.numpy().astype(np.float32).tobytes(), addr)
+        try:
+            T, Q, A = [], [], []
+            for i in range(len(imus_addr)):
+                t, q, a = XsensDotSet.get(i, timeout=1)
+                T.append(t)
+                Q.append(q)
+                A.append(a)
+                viewer.update(q.numpy()[[1, 2, 3, 0]], i)
+            data = torch.cat((torch.tensor(T), torch.cat(Q), torch.cat(A)))
+            data = data.numpy().astype(np.float32).tobytes()
+            ss.sendto(data, addr)
+            del data
+        except Empty:
+            print('[warning] read IMU error: Buffer for sensor %d is empty' % i)
