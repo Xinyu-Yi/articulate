@@ -49,7 +49,7 @@ def view_2d_keypoint(keypoints, parent=None, images=None, thickness=None, fps=60
         for uv in keypoints[i]:
             conf = float(uv[2]) if has_conf else 1
             fg = cv2.circle(bg.copy(), (int(uv[0]), int(uv[1])), int(thickness * 2), (0, 0, 255), -1)
-            bg = cv2.addWeighted(bg, 1 - conf, fg, conf, 1)
+            bg = cv2.addWeighted(bg, 1 - conf, fg, conf, 0)
         if parent is not None:
             for c, p in enumerate(parent):
                 if p is not None:
@@ -57,7 +57,7 @@ def view_2d_keypoint(keypoints, parent=None, images=None, thickness=None, fps=60
                     end = (int(keypoints[i][c][0]), int(keypoints[i][c][1]))
                     conf = min(float(keypoints[i][c][2]), float(keypoints[i][p][2])) if has_conf else 1
                     fg = cv2.line(bg.copy(), start, end, (255, 0, 0), thickness)
-                    bg = cv2.addWeighted(bg, 1 - conf, fg, conf, 1)
+                    bg = cv2.addWeighted(bg, 1 - conf, fg, conf, 0)
         cv2.imshow('2d keypoint', bg)
         if is_single_frame:
             cv2.waitKey(0)
