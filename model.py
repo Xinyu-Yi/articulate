@@ -357,12 +357,17 @@ class ParametricModel:
         param.extrinsic = Tcw.numpy()
 
         viewer = vo3d.o3d.visualization.Visualizer()
-        viewer.create_window(visible=False)
+        viewer.create_window(width=images.shape[-2], height=images.shape[-3], visible=False)
         mesh = vo3d.create_o3d_mesh(verts[0], self.face)
         viewer.add_geometry(mesh)
         view_control = viewer.get_view_control()
         view_control.convert_from_pinhole_camera_parameters(param, allow_arbitrary=True)
         viewer.get_render_option().background_color = [0, 0, 0]
+        padw = images.shape[-2] - view_control.convert_to_pinhole_camera_parameters().intrinsic.width
+        padh = images.shape[-3] - view_control.convert_to_pinhole_camera_parameters().intrinsic.height
+        assert padw >= 0 and padh >= 0
+        wb, we = padw // 2, images.shape[-2] + padw // 2 - padw
+        hb, he = padh // 2, images.shape[-3] + padh // 2 - padh
 
         if len(verts) == 1:
             viewer.poll_events()
@@ -370,7 +375,7 @@ class ParametricModel:
             frame = (np.asarray(viewer.capture_screen_float_buffer()) * 255).astype(np.uint8)
             mask = np.tile(frame.astype(np.bool8).max(axis=2, keepdims=True), (1, 1, 3))
             im = images[0].copy()
-            im[mask] = frame[mask]
+            im[hb:he, wb:we][mask] = frame[mask]
             cv2.imshow('overlay', im)
             cv2.waitKey(0)
         else:
@@ -384,7 +389,7 @@ class ParametricModel:
                 frame = (np.asarray(viewer.capture_screen_float_buffer()) * 255).astype(np.uint8)
                 mask = np.tile(frame.astype(np.bool8).max(axis=2, keepdims=True), (1, 1, 3))
                 im = images[i].copy()
-                im[mask] = frame[mask]
+                im[hb:he, wb:we][mask] = frame[mask]
                 cv2.imshow('overlay', im)
                 cv2.waitKey(1)
                 writer.write(im)
