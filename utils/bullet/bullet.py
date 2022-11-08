@@ -5,7 +5,7 @@ r"""
 
 __all__ = ['remove_collision', 'change_color', 'load_debug_params_into_bullet_from_json',
            'read_debug_param_values_from_bullet', 'read_debug_param_values_from_json', 'save_debug_params_to_json',
-           'Button']
+           'Button', 'Slider']
 
 
 import pybullet as p
@@ -116,3 +116,32 @@ class Button:
         Return the total number of clicks.
         """
         return int(p.readUserDebugParameter(self.btn, self.pid))
+
+
+class Slider:
+    r"""
+    Add a pybullet slider.
+    """
+    def __init__(self, name: str, range=(0, 1), current=None, pybullet_server_id=0):
+        r"""
+        Add a debug pybullet slider to GUI.
+
+        :param name: Slider name.
+        :param range: Slider value range (min, max).
+        :param current: Slider current value. If None, use the min value.
+        :param pybullet_server_id: Pybullet server id.
+        """
+        self.pid = pybullet_server_id
+        self.sld = p.addUserDebugParameter(' %s ' % name, range[0], range[1], current or range[0], pybullet_server_id)
+
+    def get_float(self) -> float:
+        r"""
+        Return the current slider float value.
+        """
+        return float(p.readUserDebugParameter(self.sld, self.pid))
+
+    def get_int(self) -> int:
+        r"""
+        Return the current slider int value.
+        """
+        return int(round(p.readUserDebugParameter(self.sld, self.pid)))
