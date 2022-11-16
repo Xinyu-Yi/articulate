@@ -31,8 +31,10 @@ def change_color(id_robot, color):
     Change the color of a robot.
 
     :param id_robot: Robot id.
-    :param color: Vector4 for rgba.
+    :param color: Vector3 for rgb or Vector4 for rgba in [0, 1].
     """
+    if len(color) == 3:
+        color = (color[0], color[1], color[2], 1)
     for j in range(p.getNumJoints(id_robot)):
         p.changeVisualShape(id_robot, j, rgbaColor=color)
 
