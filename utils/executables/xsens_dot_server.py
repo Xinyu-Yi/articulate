@@ -6,8 +6,9 @@ r"""
 import torch
 from queue import Empty
 from articulate.utils.xsens import XsensDotSet
-from articulate.utils.bullet.bullet import Button
+from articulate.utils.bullet.bullet import Button, Slider
 from articulate.utils.bullet.view_rotation_np import RotationViewer
+from pygame.time import Clock
 import socket
 import numpy as np
 
@@ -28,8 +29,10 @@ imus_addr = [
 addr = ('127.0.0.1', 8777)
 ss = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
+XsensDotSet.set_buffer_len(2)
 viewer = RotationViewer(n=len(imus_addr))
 viewer.connect()
+clock = Clock()
 
 connect_btn = Button('connect', viewer.physics_client)
 disconnect_btn = Button('disconnect', viewer.physics_client)
@@ -41,6 +44,7 @@ revert_heading_btn = Button('revert heading', viewer.physics_client)
 clear_btn = Button('clear', viewer.physics_client)
 battery_btn = Button('battery info', viewer.physics_client)
 quit_btn = Button('quit', viewer.physics_client)
+fps_slider = Slider('fps', (1, 60), 60, viewer.physics_client)
 
 while True:
     if connect_btn.is_click():
@@ -67,10 +71,11 @@ while True:
         break
 
     if XsensDotSet.is_started():
+        clock.tick(fps_slider.get_int())
         try:
             T, Q, A = [], [], []
             for i in range(len(imus_addr)):
-                t, q, a = XsensDotSet.get(i, timeout=1)
+                t, q, a = XsensDotSet.get(i, timeout=1, preserve_last=True)
                 T.append(t)
                 Q.append(q)
                 A.append(a)

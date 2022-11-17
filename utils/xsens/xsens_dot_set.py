@@ -9,18 +9,18 @@ __all__ = ['XsensDotSet']
 import asyncio
 import time
 from .xdc import *
-from queue import Queue, Empty
+from queue import Queue
 import torch
 
 
 _N = 10  # max 10 IMUs
-_SZ = 180  # max queue size
 
 
 class XsensDotSet:
     # _lock = [threading.Lock() for _ in range(_N)]   # lists are thread-safe
+    _SZ = 180    # max queue size
     _loop = None
-    _buffer = [Queue(_SZ) for _ in range(_N)]
+    _buffer = [Queue(180) for _ in range(_N)]
     _is_connected = False
     _is_started = False
     _pending_event = None
@@ -169,9 +169,9 @@ class XsensDotSet:
         :param i: The index of the query sensor. If negative, clear all IMUs.
         """
         if i < 0:
-            XsensDotSet._buffer = [Queue(_SZ) for _ in range(_N)]  # max 10 IMUs
+            XsensDotSet._buffer = [Queue(XsensDotSet._SZ) for _ in range(_N)]  # max 10 IMUs
         else:
-            XsensDotSet._buffer[i] = Queue(_SZ)
+            XsensDotSet._buffer[i] = Queue(XsensDotSet._SZ)
 
     @staticmethod
     def is_started() -> bool:
@@ -188,15 +188,19 @@ class XsensDotSet:
         return XsensDotSet._is_connected
 
     @staticmethod
-    def get(i: int, timeout=None):
+    def get(i: int, timeout=None, preserve_last=False):
         r"""
         Get the next measurements of the ith IMU. May be blocked.
 
         :param i: The index of the query sensor.
         :param timeout: If non-negative, block at most timeout seconds and raise an Empty error.
+        :param preserve_last: If True, do not delete the measurement from the buffer if it is the last one.
         :return: timestamp (seconds), quaternion (wxyz), and free acceleration (m/s^2 in the global inertial frame)
         """
-        parsed = XsensDotSet._buffer[i].get(block=True, timeout=timeout)
+        if preserve_last and XsensDotSet._buffer[i].qsize() == 1:
+            parsed = XsensDotSet._buffer[i].queue[0]
+        else:
+            parsed = XsensDotSet._buffer[i].get(block=True, timeout=timeout)
         t = parsed.timestamp.microseconds / 1e6
         q = torch.tensor([parsed.quaternion.w, parsed.quaternion.x, parsed.quaternion.y, parsed.quaternion.z])
         a = torch.tensor([parsed.free_acceleration.x, parsed.free_acceleration.y, parsed.free_acceleration.z])
@@ -325,6 +329,16 @@ class XsensDotSet:
         else:
             XsensDotSet._pending_event = 6
             XsensDotSet._wait_for_pending_event()
+
+    @staticmethod
+    def set_buffer_len(n=180):
+        r"""
+        Set IMU buffer length. Cache the latest n measurements.
+
+        :param n: Length of IMU buffer.
+        """
+        XsensDotSet._SZ = n
+        XsensDotSet.clear()
 
 
 # example
