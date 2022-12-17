@@ -213,7 +213,7 @@ def read_mvnx(file: str):
     ds = q_off.abs().mean(dim=0).max(dim=-1)[1]
     for i, d in enumerate(ds):
         q_off[:, i] = q_off[:, i] * q_off[:, i, d:d+1].sign()
-    q_off = quaternion_normalize(q_off).mean(dim=0)
+    q_off = quaternion_normalize(quaternion_normalize(q_off).mean(dim=0))
     data['imu']['calibrated orientation'] = quaternion_product(data['imu']['orientation'], q_off.repeat(data['imu']['orientation'].shape[0], 1, 1))
 
     return data
