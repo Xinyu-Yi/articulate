@@ -3,23 +3,23 @@ r"""
 """
 
 
-__all__ = ['ESFilter', 'ESFilterRotation']
+__all__ = ['LowPassFilter', 'LowPassFilterRotation']
 
 
 from . import math as M
-import quaternion
+import quaternion     # package: numpy-quaternion
 import torch
 
 
-class ESFilter:
+class LowPassFilter:
     r"""
-    Exponential smoothing.
+    Low-pass filter by exponential smoothing.
     """
     def __init__(self, a=0.8):
         r"""
         Current = Lerp(Last, Current, a)
 
-        :math:`s_t = ax_t + (1 - a)x_{t-1}, a \in [0, 1]`
+        :math:`y_t = ax_t + (1 - a)y_{t-1}, a \in [0, 1]`
         """
         self.a = a
         self.x = None
@@ -41,9 +41,9 @@ class ESFilter:
         self.x = None
 
 
-class ESFilterRotation(ESFilter):
+class LowPassFilterRotation(ESFilter):
     r"""
-    Exponential smoothing for rotation matrices.
+    Low-pass filter for rotations by exponential smoothing.
     """
     def __init__(self, a=0.8):
         r"""
