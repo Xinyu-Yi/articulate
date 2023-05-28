@@ -3,3 +3,4 @@ r"""
 """
 
 from .view_motion import *
+from .view_vector3 import *
