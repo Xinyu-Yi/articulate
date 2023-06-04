@@ -1,5 +1,5 @@
 r"""
-    View 3D rotations in real-time using pybullet (numpy quaternion xyzw).
+    View 3D rotations in real-time using pybullet (numpy quaternion).
 """
 
 
@@ -20,14 +20,16 @@ class RotationViewer:
 
     camera_distance = 5
 
-    def __init__(self, n=1, overlap=False):
+    def __init__(self, n=1, overlap=False, order='xyzw'):
         r"""
         :param n: Number of rotations to simultaneously show.
         """
+        assert order == 'xyzw' or order == 'wxyz', 'Only support xyzw or wxyz.'
         self.n = n
         self.interval = 0 if overlap else 1.2
         self.physics_client = 0
         self.objs = []
+        self.wfirst = order == 'wxyz'
 
     def __enter__(self):
         self.connect()
@@ -57,7 +59,7 @@ class RotationViewer:
 
     def update_all(self, quaternions: Union[List[np.ndarray], Tuple[np.ndarray]]):
         r"""
-        Update all quaternions together. (xyzw)
+        Update all quaternions together.
 
         :param quaternions: List of arrays in shape [4] for quaternions.
         """
@@ -67,18 +69,19 @@ class RotationViewer:
 
     def update(self, quaternion: np.ndarray, index=0):
         r"""
-        Update the ith rotation. (xyzw)
+        Update the ith rotation.
 
         :param quaternion: Array in shape [4] for a quaternion.
         :param index: The index of the rotation to update.
         """
         assert p.isConnected(self.physics_client), 'RotationViewer is not connected.'
         position, _ = p.getBasePositionAndOrientation(self.objs[index])
+        quaternion = np.array(quaternion)[[1, 2, 3, 0]] if self.wfirst else np.array(quaternion)
         p.resetBasePositionAndOrientation(self.objs[index], position, quaternion)
 
     def view_offline(self, quaternions: Union[List[np.ndarray], Tuple[np.ndarray]], fps=60):
         r"""
-        View 3D rotation sequences offline. (xyzw)
+        View 3D rotation sequences offline.
 
         :param quaternions: List of arrays in shape [seq_len, 4] for quaternions.
         :param fps: Sequence fps.
