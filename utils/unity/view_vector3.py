@@ -121,3 +121,14 @@ class Vector3Viewer:
             time.sleep(max(t + 1 / fps - time.time(), 0))
         if not is_connected:
             self.disconnect()
+
+
+if __name__ == '__main__':
+    theta = 0
+    with Vector3Viewer(3, True, ['a', 'bb', 'ccc']) as viewer:
+        while True:
+            theta += 0.1
+            viewer.update_all([np.array([np.cos(theta), 0 , np.sin(theta)]),
+                               np.array([np.cos(theta), np.sin(theta), 0]),
+                               np.array([0, np.cos(theta), np.sin(theta)])])
+            time.sleep(0.02)
