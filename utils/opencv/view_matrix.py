@@ -25,6 +25,7 @@ class MatrixViewer:
         self.box_size = [int(_) for _ in box_size]
         self.empty_im = np.ones((box_size[0] * shape[0], box_size[1] * shape[1], 3), dtype=np.uint8) * 255
         self.im = None
+        self.fontsize = self.box_size[0] / 128
 
     def __enter__(self):
         self.connect()
@@ -45,7 +46,7 @@ class MatrixViewer:
         r"""
         Disconnect to the viewer.
         """
-        cv2.destroyAllWindows()
+        cv2.destroyWindow('Matrix Viewer')
         self.im = None
 
     def update(self, matrix):
@@ -70,9 +71,9 @@ class MatrixViewer:
                               -1)
                 cv2.putText(self.im,
                            '%.2f' % matrix[i, j],
-                           (j * self.box_size[1] + 5, (i + 1) * self.box_size[0] - 5),
+                           (j * self.box_size[1] + 4, int((i + 0.55) * self.box_size[0])),
                            cv2.FONT_HERSHEY_SIMPLEX,
-                           self.box_size[0] / 128,
+                           self.fontsize,
                            (255, 255, 255),
                            1)
         cv2.imshow('Matrix Viewer', self.im)
