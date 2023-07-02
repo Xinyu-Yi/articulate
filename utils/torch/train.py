@@ -14,7 +14,8 @@ from thop import clever_format
 
 def train(net, train_dataloader, vald_dataloader=None, save_dir='weights', loss_fn=torch.nn.MSELoss(),
           eval_fn=None, optimizer=None, num_epoch=5000, num_iter_between_vald=-1, early_stop_threshold=-1,
-          clip_grad_norm=0., load_last_states=True, save_log=True, eval_metric_names=None, epoch_callback_fn=None):
+          clip_grad_norm=0., load_last_states=True, save_log=True, net_structure_not_serializable=False,
+          eval_metric_names=None, epoch_callback_fn=None):
     r"""
     Train a net.
 
@@ -45,6 +46,7 @@ def train(net, train_dataloader, vald_dataloader=None, save_dir='weights', loss_
     :param load_last_states: If True and state files exist, last training states (net weights, optimizer states,
                              training info) will be loaded before training.
     :param save_log: If True, train-validation-loss curves will be plotted using tensorboard (saved in save_dir/log).
+    :param net_structure_not_serializable: The net structure is not serializable. Do not save the net structure.
     :param eval_metric_names: A list of strings. Names of the returned values of eval_fn (used in tensorboard).
     :param epoch_callback_fn: If not None, call once at the end of each epoch.
     """
@@ -92,8 +94,9 @@ def train(net, train_dataloader, vald_dataloader=None, save_dir='weights', loss_
                 print(', vald_loss:', vald_loss.cpu(), ', min_val_loss:', min_vald_loss, end='')
             print('')
 
-    torch.save(net, structure_file)
-    print('the whole model (before training) is saved into structure.pt')
+    if not net_structure_not_serializable:
+        torch.save(net, structure_file)
+        print('the whole model (before training) is saved into structure.pt')
     total_it = train_info['total_it'] 
 
     for epoch in range(train_info['epoch'], num_epoch):
