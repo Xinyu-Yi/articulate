@@ -134,7 +134,7 @@ class RNN(torch.nn.Module):
         self.input_linear = input_linear
         self.same_seqlen = same_sequence_length
 
-        if load_weight_file and os.path.exists(load_weight_file):
+        if load_weight_file:
             self.load_state_dict(torch.load(load_weight_file, map_location=torch.device('cpu')))
             self.eval()
 
@@ -201,7 +201,7 @@ class RNNWithInit(RNN):
             torch.nn.LayerNorm(2 * (2 if bidirectional else 1) * num_rnn_layer * hidden_size) if layer_norm else torch.nn.Identity()
         )
 
-        if load_weight_file and os.path.exists(load_weight_file):
+        if load_weight_file:
             self.load_state_dict(torch.load(load_weight_file, map_location=torch.device('cpu')))
             self.eval()
 
@@ -251,8 +251,9 @@ class CycleRNN(torch.nn.Module):  # todo: dropout order, not very well, .predict
         self.output_size = output_size
         self.pred_weight = pred_weight
 
-        if load_weight_file and os.path.exists(load_weight_file):
-            self.load_state_dict(torch.load(load_weight_file))
+        if load_weight_file:
+            self.load_state_dict(torch.load(load_weight_file, map_location=torch.device('cpu')))
+            self.eval()
 
     def _lerp(self, pred, true):
         return pred * self.pred_weight + true * (1 - self.pred_weight)
