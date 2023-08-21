@@ -24,18 +24,21 @@ def lerp(a, b, t):
     return a * (1 - t) + b * t
 
 
-def normalize_tensor(x: torch.Tensor, dim=-1, return_norm=False):
+def normalize_tensor(x: torch.Tensor, dim=-1, return_norm=False, avoid_nan=False):
     r"""
     Normalize a tensor in a specific dimension to unit norm. (torch)
 
     :param x: Tensor in any shape.
     :param dim: The dimension to be normalized.
     :param return_norm: If True, norm(length) tensor will also be returned.
+    :param avoid_nan: If True, return zeros if norm is 0.
     :return: Tensor in the same shape. If return_norm is True, norm tensor in shape [*, 1, *] (1 at dim)
              will also be returned (keepdim=True).
     """
     norm = x.norm(dim=dim, keepdim=True)
     normalized_x = x / norm
+    if avoid_nan:
+        normalized_x[torch.isnan(normalized_x)] = 0
     return normalized_x if not return_norm else (normalized_x, norm)
 
 
