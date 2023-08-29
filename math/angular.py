@@ -9,7 +9,8 @@ __all__ = ['RotationRepresentation', 'to_rotation_matrix', 'radian_to_degree', '
            'rotation_matrix_to_r6d', 'quaternion_to_axis_angle', 'axis_angle_to_quaternion',
            'quaternion_to_rotation_matrix', 'rotation_matrix_to_euler_angle', 'euler_angle_to_rotation_matrix',
            'rotation_matrix_to_euler_angle_np', 'euler_angle_to_rotation_matrix_np', 'euler_convert_np',
-           'quaternion_product', 'quaternion_inverse', 'quaternion_mean', 'generate_random_rotation_matrix_constrained']
+           'quaternion_product', 'quaternion_inverse', 'quaternion_mean', 'generate_random_rotation_matrix_constrained',
+           'quaternion_mean_robust']
 
 
 from .general import *
@@ -69,12 +70,33 @@ def quaternion_mean(q):
     r"""
     Calculate the mean quaternion. (torch)
 
+    Warning: Input quaternions should be very close to each other.
+
     :param q: Tensor [N, 4].
     :return: Tensor [4].
     """
     q = q.view(-1, 4)
     q = q * q[:, int(q.abs().mean(dim=0).argmax())].sign().view(-1, 1).expand(-1, 4)
     return normalize_tensor(q.mean(dim=0))
+
+
+def quaternion_mean_robust(q, w=None):
+    r"""
+    Calculate the (weighted) average quaternion. (torch)
+
+    This is more robust than quaternion_mean(), but slower.
+    Reference: https://ntrs.nasa.gov/api/citations/20070017872/downloads/20070017872.pdf
+
+    :param q: Tensor [N, 4].
+    :param w: Tensor [N] for quaternion weights.
+    :return: Tensor [4].
+    """
+    q = q.view(-1, 4)
+    w = torch.ones_like(q[:, 0]) / q.shape[0] if w is None else w.view(-1) / w.sum()
+    m = (q.unsqueeze(-1).bmm(q.unsqueeze(-2)) * w.view(-1, 1, 1)).sum(dim=0)
+    q = torch.symeig(m, eigenvectors=True).eigenvectors[:, -1]
+    return q
+
 
 def quaternion_product(q1, q2):
     r"""
