@@ -19,9 +19,10 @@ class StreamingDataViewer:
     """
     W = 800
     H = 600
+    font_size = 18
     colors = (np.array(matplotlib.colormaps['tab10'].colors) * 255).astype(int)
 
-    def __init__(self, n=1, y_range=(0, 10), window_length=100, fft=False):
+    def __init__(self, n=1, y_range=(0, 10), window_length=100, names=None, fft=False):
         r"""
         Note: x-range will be [0, window_length] for time domain and [0, fps/2] for frequency domain.
               y-range will be [y_range[0], y_range[1]] for time domain and [0, y_range[1]] for frequency domain.
@@ -29,6 +30,7 @@ class StreamingDataViewer:
         :param n: Number of data to simultaneously plot.
         :param y_range: Data range (min, max).
         :param window_length: Number of historical data points simultaneously shown in screen for each plot.
+        :param names: List of str. Line names.
         :param fft: Perform fast fourier transform on the window of data and plot the frequency.
         """
         self.n = n
@@ -36,6 +38,7 @@ class StreamingDataViewer:
         self.y_range = y_range if not fft else (-0.01, y_range[1])
         self.ys = None
         self.screen = None
+        self.names = names
         self.dx = self.W / (window_length - 1) * (2 if fft else 1)
         self.dy = self.H / (self.y_range[1] - self.y_range[0])
         self.line_width = max(self.H // 200, 1)
@@ -64,6 +67,9 @@ class StreamingDataViewer:
         pygame.display.set_caption('Streaming Data Viewer (%s Domain): x_length=%d, y_range=(%.1f, %.1f)' %
                                    ('Frequency' if self.fft else 'Time',
                                     self.window_length, self.y_range[0], self.y_range[1]))
+        if self.names is not None:
+            font = pygame.font.SysFont('arial', self.font_size)
+            self.names = [font.render(chr(9644) + ' ' + self.names[i], True, self.colors[i % 10]) for i in range(len(self.names))]
 
     def disconnect(self):
         r"""
@@ -92,6 +98,9 @@ class StreamingDataViewer:
             points = [(j * self.dx, self.H - (v - self.y_range[0]) * self.dy) for j, v in enumerate(data)]
             if len(points) > 1:
                 pygame.draw.lines(self.screen, self.colors[i % 10], False, points, width=self.line_width)
+        if self.names is not None:
+            for i in range(len(self.names)):
+                self.screen.blit(self.names[i], (10, i * self.font_size))
         pygame.display.update()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
