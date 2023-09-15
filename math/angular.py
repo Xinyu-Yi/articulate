@@ -10,7 +10,7 @@ __all__ = ['RotationRepresentation', 'to_rotation_matrix', 'radian_to_degree', '
            'quaternion_to_rotation_matrix', 'rotation_matrix_to_euler_angle', 'euler_angle_to_rotation_matrix',
            'rotation_matrix_to_euler_angle_np', 'euler_angle_to_rotation_matrix_np', 'euler_convert_np',
            'quaternion_product', 'quaternion_inverse', 'quaternion_mean', 'generate_random_rotation_matrix_constrained',
-           'quaternion_mean_robust']
+           'quaternion_mean_robust', 'normalize_rotation_matrix']
 
 
 from .general import *
@@ -50,6 +50,23 @@ def to_rotation_matrix(r: torch.Tensor, rep: RotationRepresentation):
         return r.view(-1, 3, 3)
     else:
         raise Exception('unknown rotation representation')
+
+
+def normalize_rotation_matrix(R: torch.Tensor, check_det=True):
+    r"""
+    Normalize rotation matrices using svd. (torch, batch)
+
+    :param R: Rotation matrix tensor that can reshape to [batch_size, 3, 3].
+    :param check_det: Check if the determinant is 1.
+    :return: Normalized rotation matrix tensor of shape [batch_size, 3, 3].
+    """
+    R = R.view(-1, 3, 3)
+    U, S, V = torch.svd(R)
+    R = U.bmm(V.transpose(1, 2))
+    if check_det:
+        m = R.det() < 0
+        R[m] = U[m].matmul(torch.diag(torch.tensor([1, 1, -1.], device=R.device))).bmm(V[m].transpose(1, 2))
+    return R
 
 
 def radian_to_degree(q):
