@@ -15,7 +15,7 @@ from thop import clever_format
 def train(net, train_dataloader, vald_dataloader=None, save_dir='weights', loss_fn=torch.nn.MSELoss(),
           eval_fn=None, optimizer=None, num_epoch=5000, num_iter_between_vald=-1, early_stop_threshold=-1,
           clip_grad_norm=0., load_last_states=True, save_log=True, net_structure_not_serializable=False,
-          eval_metric_names=None, epoch_callback_fn=None):
+          eval_metric_names=None, epoch_callback_fn=None, checkpoint_epochs=-1):
     r"""
     Train a net.
 
@@ -49,6 +49,7 @@ def train(net, train_dataloader, vald_dataloader=None, save_dir='weights', loss_
     :param net_structure_not_serializable: The net structure is not serializable. Do not save the net structure.
     :param eval_metric_names: A list of strings. Names of the returned values of eval_fn (used in tensorboard).
     :param epoch_callback_fn: If not None, call once at the end of each epoch.
+    :param checkpoint_epochs: Save network weights every n epochs.
     """
     if optimizer is None:
         optimizer = torch.optim.Adam(net.parameters())
@@ -98,6 +99,7 @@ def train(net, train_dataloader, vald_dataloader=None, save_dir='weights', loss_
         torch.save(net, structure_file)
         print('the whole model (before training) is saved into structure.pt')
     total_it = train_info['total_it'] 
+    checkpoint = -1 if checkpoint_epochs <= 0 else (train_info['epoch'] // checkpoint_epochs + 1) * checkpoint_epochs
 
     for epoch in range(train_info['epoch'], num_epoch):
         net.train()
@@ -128,6 +130,10 @@ def train(net, train_dataloader, vald_dataloader=None, save_dir='weights', loss_
                 torch.save(net.state_dict(), weights_file)
                 torch.save(optimizer.state_dict(), optimizer_states_file)
                 torch.save({'epoch': epoch, 'it': i + 1, 'total_it': total_it}, train_info_file)
+
+                if epoch == checkpoint:
+                    torch.save(net.state_dict(), os.path.join(save_dir, 'weights_%d.pt' % checkpoint))
+                    checkpoint += checkpoint_epochs
 
                 if save_log:
                     writter.add_scalar('train/loss', train_loss, total_it)
