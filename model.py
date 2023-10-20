@@ -18,12 +18,13 @@ class ParametricModel:
     r"""
     SMPL/MANO/SMPLH parametric model.
     """
-    def __init__(self, official_model_file: str, use_pose_blendshape=False, device=torch.device('cpu')):
+    def __init__(self, official_model_file: str, use_pose_blendshape=False, vert_mask=None, device=torch.device('cpu')):
         r"""
         Init an SMPL/MANO/SMPLH parametric model.
 
         :param official_model_file: Path to the official model to be loaded.
         :param use_pose_blendshape: Whether to use the pose blendshape.
+        :param vert_mask: List of selected vertex index. None for all vertices.
         :param device: torch.device, cpu or cuda.
         """
         with open(official_model_file, 'rb') as f:
@@ -38,6 +39,13 @@ class ParametricModel:
         self.parent = data['kintree_table'][0].tolist()
         self.parent[0] = None
         self.use_pose_blendshape = use_pose_blendshape
+
+        if vert_mask is not None:
+            self._J_regressor = self._J_regressor[:, vert_mask].clone()
+            self._skinning_weights = self._skinning_weights[vert_mask, :].clone()
+            self._posedirs = self._posedirs[vert_mask, :, :].clone()
+            self._shapedirs = self._shapedirs[vert_mask, :, :].clone()
+            self._v_template = self._v_template[vert_mask, :].clone()
 
     def save_obj_mesh(self, vertex_position, file_name='a.obj'):
         r"""
