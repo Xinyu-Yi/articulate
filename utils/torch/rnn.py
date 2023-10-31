@@ -59,6 +59,9 @@ class RNNDataset(torch.utils.data.Dataset):
                     if td.shape[0] % split_size != 0:
                         self.data.extend(td.split(split_size)[:-1])
                         self.label.extend(tl.split(split_size)[:-1])
+                        if td.shape[0] > split_size:
+                            self.data.append(td[-split_size:])
+                            self.label.append(tl[-split_size:])
                     else:
                         self.data.extend(td.split(split_size))
                         self.label.extend(tl.split(split_size))
