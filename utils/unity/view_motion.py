@@ -80,7 +80,7 @@ class MotionViewer:
         for i, (pose, tran) in enumerate(zip(poses, trans)):
             self.update(pose, tran, i, render=False)
         if render:
-            self._render()
+            self.render()
 
     def update(self, pose, tran, index=0, render=True):
         r"""
@@ -100,9 +100,74 @@ class MotionViewer:
             ','.join(['%g' % v for v in tran.ravel()]) + '$'
         self.conn.send(s.encode('utf8'))
         if render:
-            self._render()
+            self.render()
 
-    def _render(self):
+    def draw_line(self, start, end, color=(0, 0, 0), width=0.01, render=True):
+        r"""
+        Draw a line.
+
+        :param start: Tensor or ndarray that can reshape to [3] for the starting point.
+        :param end: Tensor or ndarray that can reshape to [3] for the ending point.
+        :param color: Tensor or ndarray that can reshape to [3] for RGB or [4] for RGBA in [0, 1].
+        :param width: Line width.
+        :param render: Render the frame after the line has been drawn.
+        """
+        assert self.conn is not None, 'MotionViewer is not connected.'
+        start = np.array(start)
+        end = np.array(end)
+        color = np.array(color)
+        s = 'L#' + \
+            ','.join(['%g' % v for v in start.ravel()]) + '#' + \
+            ','.join(['%g' % v for v in end.ravel()]) + '#' + \
+            ','.join(['%g' % v for v in color.ravel()]) + '#' + \
+            str(width) + '$'
+        self.conn.send(s.encode('utf8'))
+        if render:
+            self.render()
+
+    def clear_line(self, render=True):
+        r"""
+        Clear all lines.
+
+        :param render: Render the frame after the line has been cleared.
+        """
+        assert self.conn is not None, 'MotionViewer is not connected.'
+        self.conn.send('l$'.encode('utf8'))
+        if render:
+            self.render()
+
+    def draw_point(self, position, color=(0, 0, 0), radius=0.2, render=True):
+        r"""
+        Draw a point.
+
+        :param position: Tensor or ndarray that can reshape to [3] for the point position.
+        :param color: Tensor or ndarray that can reshape to [3] for RGB or [4] for RGBA in [0, 1].
+        :param radius: Point size.
+        :param render: Render the frame after the line has been drawn.
+        """
+        assert self.conn is not None, 'MotionViewer is not connected.'
+        position = np.array(position)
+        color = np.array(color)
+        s = 'P#' + \
+            ','.join(['%g' % v for v in position.ravel()]) + '#' + \
+            ','.join(['%g' % v for v in color.ravel()]) + '#' + \
+            str(radius) + '$'
+        self.conn.send(s.encode('utf8'))
+        if render:
+            self.render()
+
+    def clear_point(self, render=True):
+        r"""
+        Clear all points.
+
+        :param render: Render the frame after the line has been cleared.
+        """
+        assert self.conn is not None, 'MotionViewer is not connected.'
+        self.conn.send('p$'.encode('utf8'))
+        if render:
+            self.render()
+
+    def render(self):
         r"""
         Render the frame in unity.
         """
