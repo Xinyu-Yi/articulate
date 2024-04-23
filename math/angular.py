@@ -4,7 +4,7 @@ r"""
 
 
 __all__ = ['RotationRepresentation', 'to_rotation_matrix', 'radian_to_degree', 'degree_to_radian', 'normalize_angle',
-           'angle_difference', 'angle_between', 'svd_rotate', 'generate_random_rotation_matrix',
+           'angle_difference', 'angle_between', 'angle_from_two_vectors', 'svd_rotate', 'generate_random_rotation_matrix',
            'axis_angle_to_rotation_matrix', 'rotation_matrix_to_axis_angle', 'r6d_to_rotation_matrix',
            'rotation_matrix_to_r6d', 'quaternion_to_axis_angle', 'axis_angle_to_quaternion',
            'quaternion_to_rotation_matrix', 'rotation_matrix_to_euler_angle', 'euler_angle_to_rotation_matrix',
@@ -178,6 +178,28 @@ def angle_between(rot1: torch.Tensor, rot2: torch.Tensor, rep=RotationRepresenta
     offsets = rot1.transpose(1, 2).bmm(rot2)
     angles = rotation_matrix_to_axis_angle(offsets).norm(dim=1)
     return angles
+
+
+def angle_from_two_vectors(v1, v2, signed=False):
+    r"""
+    Calculate the angle between two vectors. (torch, batch)
+
+    If signed is False, return radians in [0, pi].
+    If signed is True, return radians in [-pi, pi].
+
+    :param v1: Tensor that can reshape to [batch_size, 3].
+    :param v2: Tensor that can reshape to [batch_size, 3].
+    :param signed: If True, return signed angles.
+    :return: Angles in shape [batch_size] in radians.
+    """
+    v1 = normalize_tensor(v1.view(-1, 3))
+    v2 = normalize_tensor(v2.view(-1, 3))
+    angle = (v1 * v2).sum(dim=-1).clip(-1, 1).acos()
+    if signed:
+        cross_product = torch.cross(v1, v2)
+        angle[cross_product[:, 2] < 0] = -angle[cross_product[:, 2] < 0]
+    return angle
+
 
 
 def svd_rotate(source_points: torch.Tensor, target_points: torch.Tensor, calc_R=True, calc_t=False, calc_s=False):
