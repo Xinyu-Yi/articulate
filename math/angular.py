@@ -73,14 +73,14 @@ def radian_to_degree(q):
     r"""
     Convert radians to degrees.
     """
-    return q * 180.0 / np.pi
+    return q * (180.0 / np.pi)
 
 
 def degree_to_radian(q):
     r"""
     Convert degrees to radians.
     """
-    return q / 180.0 * np.pi
+    return q * (np.pi / 180.0)
 
 
 def quaternion_mean(q):
@@ -126,7 +126,7 @@ def quaternion_product(q1, q2):
     """
     w1, xyz1 = q1.view(-1, 4)[:, :1], q1.view(-1, 4)[:, 1:]
     w2, xyz2 = q2.view(-1, 4)[:, :1], q2.view(-1, 4)[:, 1:]
-    xyz = torch.cross(xyz1, xyz2) + w1 * xyz2 + w2 * xyz1
+    xyz = torch.cross(xyz1, xyz2, dim=-1) + w1 * xyz2 + w2 * xyz1
     w = w1 * w2 - (xyz1 * xyz2).sum(dim=1, keepdim=True)
     q = torch.cat((w, xyz), dim=1).view_as(q1)
     return q
@@ -196,10 +196,9 @@ def angle_from_two_vectors(v1, v2, signed=False):
     v2 = normalize_tensor(v2.view(-1, 3))
     angle = (v1 * v2).sum(dim=-1).clip(-1, 1).acos()
     if signed:
-        cross_product = torch.cross(v1, v2)
+        cross_product = torch.cross(v1, v2, dim=-1)
         angle[cross_product[:, 2] < 0] = -angle[cross_product[:, 2] < 0]
     return angle
-
 
 
 def svd_rotate(source_points: torch.Tensor, target_points: torch.Tensor, calc_R=True, calc_t=False, calc_s=False):
@@ -345,9 +344,10 @@ def quaternion_to_axis_angle(q: torch.Tensor):
     :return: Axis-angle tensor of shape [batch_size, 3].
     """
     q = normalize_tensor(q.view(-1, 4))
+    q[q[:, 0] < 0] = -q[q[:, 0] < 0]
     theta_half = q[:, 0].clamp(min=-1, max=1).acos()
     a = (q[:, 1:] / theta_half.sin().view(-1, 1) * 2 * theta_half.view(-1, 1)).view(-1, 3)
-    a[torch.isnan(a)] = 0
+    a[theta_half < 1e-6] = q[theta_half < 1e-6][:, 1:] * 2
     return a
 
 
