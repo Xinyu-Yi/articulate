@@ -130,43 +130,50 @@ class CalibratedIMUSet(IMUSet):
         angle = (v1 * v2).sum(dim=-1).clip(-1, 1).acos() * (180 / np.pi)
         return angle
 
-    def _fixpose_calibration(self, RMI_method, RSB_method):
+    @staticmethod
+    def _input(s, skip_input):
+        if skip_input:
+            print(s)
+        else:
+            return input(s)
+
+    def _fixpose_calibration(self, RMI_method, RSB_method, skip_input=False):
         if RMI_method == '9dof':
-            input('Put the first imu at pose (x = Right, y = Forward, z = Down, Left-handed) and press enter.')
+            self._input('Put the first imu at pose (x = Right, y = Forward, z = Down, Left-handed) and press enter.', skip_input)
             RSI = self.get()[1][0].t()
             RMI = torch.tensor([[1, 0, 0], [0, 0, 1], [0, -1, 0.]]).mm(RSI).repeat(self.N, 1, 1)
         elif RMI_method == '6dof':
-            input('Put all imus at pose (x = Forward, y = Up, z = Left, Left-handed) and press enter.')
+            self._input('Put all imus at pose (x = Forward, y = Up, z = Left, Left-handed) and press enter.', skip_input)
             RSI = self.get()[1].transpose(1, 2)
             RMI = torch.tensor([[0, 0, -1], [0, -1, 0], [-1, 0, 0.]]).matmul(RSI)
         elif RMI_method == 'skip':
             RMI = self.RMI
 
         if RSB_method == 'tpose':
-            input('Stand in T-pose and press enter. The calibration will start in 3 seconds.')
+            self._input('Stand in T-pose and press enter. The calibration will start in 3 seconds.', skip_input)
             time.sleep(3)
             RIS = self.get()[1]
             RSB = RMI.matmul(RIS).transpose(1, 2).matmul(self.RMB_Tpose[self.mask])
         elif RSB_method == 'npose':
-            input('Stand in N-pose and press enter. The calibration will start in 3 seconds.')
+            self._input('Stand in N-pose and press enter. The calibration will start in 3 seconds.', skip_input)
             time.sleep(3)
             RIS = self.get()[1]
             RSB = RMI.matmul(RIS).transpose(1, 2).matmul(self.RMB_Npose[self.mask])
 
         err = self._angle_from_two_vectors(RMI[:, :, 2], torch.tensor([0, -1, 0.]))
-        if all(err < 8):
+        if all(err < 8) or skip_input:
             c = 'n'
             print('Calibration succeed: My-Iz error %s deg' % err)
         else:
             c = input('Calibration fail: My-Iz error %s deg. Try again? [y]/n' % err)
         if c != 'n':
-            self._fixpose_calibration(RMI_method, RSB_method)
+            self._fixpose_calibration(RMI_method, RSB_method, skip_input)
         else:
             self.RMI = RMI
             self.RSB = RSB
 
-    def _changepose_calibration(self):
-        input('Stand in N pose for 3 seconds and then change to T-pose. Press enter to start.')
+    def _changepose_calibration(self, skip_input=False):
+        self._input('Stand in N pose for 3 seconds and then change to T-pose. Press enter to start.', skip_input)
         time.sleep(3)
         RIS_N = self.get()[1]
         winsound.Beep(440, 600)
@@ -188,19 +195,19 @@ class CalibratedIMUSet(IMUSet):
 
         err_forward = self._angle_from_two_vectors(zIs[0], zIs[1])
         err_RSB = self._rotation_matrix_to_axis_angle(RSB0.bmm(RSB1.transpose(1, 2))).norm(dim=-1) * (180 / np.pi)
-        if err_forward < 20 and all(err_RSB < 20):
+        if err_forward < 30 and all(err_RSB < 30) or skip_input:
             c = 'n'
             print('Calibration succeed: forward error %.1f deg, RSB error %s deg' % (err_forward, err_RSB))
         else:
             c = input('Calibration fail: forward error %.1f deg, RSB error %s deg. Try again? [y]/n' % (err_forward, err_RSB))
         if c != 'n':
-            self._changepose_calibration()
+            self._changepose_calibration(skip_input)
         else:
             self.RMI = RMI
             self.RSB = RSB
 
-    def _walking_calibration(self, RMI_method):
-        input('Stand in N pose for 3 seconds, then step forward and stop in the N-pose again.')
+    def _walking_calibration(self, RMI_method, skip_input=False):
+        self._input('Stand in N pose for 3 seconds, then step forward and stop in the N-pose again.', skip_input)
         time.sleep(3)
         RIS_N0 = self.get()[1]
         winsound.Beep(440, 600)
@@ -241,18 +248,18 @@ class CalibratedIMUSet(IMUSet):
 
         err_vertical = p_filtered[:, -1].abs()
         err_RSB = self._rotation_matrix_to_axis_angle(RSB0.bmm(RSB1.transpose(1, 2))).norm(dim=-1) * (180 / np.pi)
-        if all(err_vertical < 0.1) and all(err_RSB < 15):
+        if all(err_vertical < 0.1) and all(err_RSB < 20) or skip_input:
             c = 'n'
             print('Calibration succeed: vertical error %s m, RSB error %s deg' % (err_vertical, err_RSB))
         else:
             c = input('Calibration fail: vertical error %s m, RSB error %s deg. Try again? [y]/n' % (err_vertical, err_RSB))
         if c != 'n':
-            self._walking_calibration(RMI_method)
+            self._walking_calibration(RMI_method, skip_input)
         else:
             self.RMI = RMI
             self.RSB = RSB
 
-    def calibrate(self, method):
+    def calibrate(self, method, skip_input=False):
         r"""
         Calibrate the IMU set.
 
@@ -266,22 +273,23 @@ class CalibratedIMUSet(IMUSet):
             - 'npose_tpose':    Change-pose calibration for 9-dof IMU. One step: stand in N pose and then change to T-pose.
             - 'walking_9dof':   Walking calibration for 9-dof IMU. One step: stand in N pose, step forward and stop in N pose.
             - 'walking_6dof':   Walking calibration for 6-dof IMU. One step: stand in N pose, step forward and stop in N pose.
+        :param skip_input: If true, skip user input and do calibration directly without error check.
         """
         if method == 'tpose_9dof':
-            self._fixpose_calibration(RMI_method='9dof', RSB_method='tpose')
+            self._fixpose_calibration(RMI_method='9dof', RSB_method='tpose', skip_input=skip_input)
         elif method == 'tpose_6dof':
-            self._fixpose_calibration(RMI_method='6dof', RSB_method='tpose')
+            self._fixpose_calibration(RMI_method='6dof', RSB_method='tpose', skip_input=skip_input)
         elif method == 'tpose_onlyRSB':
-            self._fixpose_calibration(RMI_method='skip', RSB_method='tpose')
+            self._fixpose_calibration(RMI_method='skip', RSB_method='tpose', skip_input=skip_input)
         elif method == 'npose_9dof':
-            self._fixpose_calibration(RMI_method='9dof', RSB_method='npose')
+            self._fixpose_calibration(RMI_method='9dof', RSB_method='npose', skip_input=skip_input)
         elif method == 'npose_6dof':
-            self._fixpose_calibration(RMI_method='6dof', RSB_method='npose')
+            self._fixpose_calibration(RMI_method='6dof', RSB_method='npose', skip_input=skip_input)
         elif method == 'npose_onlyRSB':
-            self._fixpose_calibration(RMI_method='skip', RSB_method='npose')
+            self._fixpose_calibration(RMI_method='skip', RSB_method='npose', skip_input=skip_input)
         elif method == 'npose_tpose':
-            self._changepose_calibration()
+            self._changepose_calibration(skip_input=skip_input)
         elif method == 'walking_9dof':
-            self._walking_calibration(RMI_method='9dof')
+            self._walking_calibration(RMI_method='9dof', skip_input=skip_input)
         elif method == 'walking_6dof':
-            self._walking_calibration(RMI_method='6dof')
+            self._walking_calibration(RMI_method='6dof', skip_input=skip_input)

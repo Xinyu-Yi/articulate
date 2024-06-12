@@ -125,6 +125,30 @@ class MotionViewer:
         if render:
             self.render()
 
+    def draw_line_from_joint(self, subject_index, joint_index, ray, color=(0, 0, 0), width=0.01, render=True):
+        r"""
+        Draw a line from a joint.
+
+        :param subject_index: Subject index to determine the joint.
+        :param joint_index: Joint index for the starting point.
+        :param ray: Tensor or ndarray that can reshape to [3] for the line direction * length.
+        :param color: Tensor or ndarray that can reshape to [3] for RGB or [4] for RGBA in [0, 1].
+        :param width: Line width.
+        :param render: Render the frame after the line has been drawn.
+        """
+        assert self.conn is not None, 'MotionViewer is not connected.'
+        ray = np.array(ray)
+        color = np.array(color)
+        s = 'R#' + \
+            str(subject_index) + '#' + \
+            str(joint_index) + '#' + \
+            ','.join(['%g' % v for v in ray.ravel()]) + '#' + \
+            ','.join(['%g' % v for v in color.ravel()]) + '#' + \
+            str(width) + '$'
+        self.conn.send(s.encode('utf8'))
+        if render:
+            self.render()
+
     def clear_line(self, render=True):
         r"""
         Clear all lines.
@@ -150,6 +174,27 @@ class MotionViewer:
         color = np.array(color)
         s = 'P#' + \
             ','.join(['%g' % v for v in position.ravel()]) + '#' + \
+            ','.join(['%g' % v for v in color.ravel()]) + '#' + \
+            str(radius) + '$'
+        self.conn.send(s.encode('utf8'))
+        if render:
+            self.render()
+
+    def draw_point_from_joint(self, subject_index, joint_index, color=(0, 0, 0), radius=0.2, render=True):
+        r"""
+        Draw a point from a joint.
+
+        :param subject_index: Subject index to determine the joint.
+        :param joint_index: Joint index for the point.
+        :param color: Tensor or ndarray that can reshape to [3] for RGB or [4] for RGBA in [0, 1].
+        :param radius: Point size.
+        :param render: Render the frame after the line has been drawn.
+        """
+        assert self.conn is not None, 'MotionViewer is not connected.'
+        color = np.array(color)
+        s = 'J#' + \
+            str(subject_index) + '#' + \
+            str(joint_index) + '#' + \
             ','.join(['%g' % v for v in color.ravel()]) + '#' + \
             str(radius) + '$'
         self.conn.send(s.encode('utf8'))
