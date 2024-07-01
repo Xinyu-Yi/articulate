@@ -201,6 +201,30 @@ class MotionViewer:
         if render:
             self.render()
 
+    def hide_character(self, subject_index=0, render=True):
+        r"""
+        Hide a character.
+
+        :param subject_index: Subject index.
+        """
+        assert self.conn is not None, 'MotionViewer is not connected.'
+        s = 'H#' + str(subject_index) + '$'
+        self.conn.send(s.encode('utf8'))
+        if render:
+            self.render()
+
+    def show_character(self, subject_index=0, render=True):
+        r"""
+        Show a character.
+
+        :param subject_index: Subject index.
+        """
+        assert self.conn is not None, 'MotionViewer is not connected.'
+        s = 'h#' + str(subject_index) + '$'
+        self.conn.send(s.encode('utf8'))
+        if render:
+            self.render()
+
     def clear_point(self, render=True):
         r"""
         Clear all points.
