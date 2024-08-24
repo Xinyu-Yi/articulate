@@ -43,7 +43,7 @@ class IMUSet:
         self.t = 0
 
     @staticmethod
-    def quaternion_to_rotation_matrix(q: torch.Tensor):
+    def _quaternion_to_rotation_matrix(q: torch.Tensor):
         a, b, c, d = q[:, 0:1], q[:, 1:2], q[:, 2:3], q[:, 3:4]
         r = torch.cat((- 2 * c * c - 2 * d * d + 1, 2 * b * c - 2 * a * d, 2 * a * c + 2 * b * d,
                        2 * b * c + 2 * a * d, - 2 * b * b - 2 * d * d + 1, 2 * c * d - 2 * a * b,
@@ -68,7 +68,7 @@ class IMUSet:
                 m.append(sensor.get_compass_value())
 
         # assuming g is positive (= 9.8), we need to change left-handed system to right-handed by reversing axis x, y, z
-        RIS = self.quaternion_to_rotation_matrix(torch.tensor(q))  # rotation is not changed
+        RIS = self._quaternion_to_rotation_matrix(torch.tensor(q))  # rotation is not changed
         wS = torch.tensor(w) / 180 * torch.pi
         mS = torch.tensor(m)
         aS = -torch.tensor(a) / 1000 * self.g                         # acceleration is reversed
@@ -76,7 +76,6 @@ class IMUSet:
         wI = RIS.bmm(wS.unsqueeze(-1)).squeeze(-1)                     # calculate global angular velocity
         mI = RIS.bmm(mS.unsqueeze(-1)).squeeze(-1)                     # calculate global magnetic field
         return self.t, RIS, aS, wS, mS, aI, wI, mI
-
 
 class CalibratedIMUSet(IMUSet):
     RMB_Npose = torch.tensor([[[0, 1, 0], [-1, 0, 0], [0, 0, 1]],
