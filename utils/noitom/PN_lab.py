@@ -78,13 +78,13 @@ class IMUSet:
         return self.t, RIS, aS, wS, mS, aI, wI, mI
 
 class CalibratedIMUSet(IMUSet):
-    RMB_Npose = torch.tensor([[[0, 1, 0], [-1, 0, 0], [0, 0, 1]],
-                              [[0, -1, 0], [1, 0, 0], [0, 0, 1]],
-                              [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-                              [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-                              [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
-                              [[1, 0, 0], [0, 1, 0], [0, 0, 1]]]).float()
-    RMB_Tpose = torch.eye(3).repeat(6, 1, 1)
+    _RMB_Npose = torch.tensor([[[0, 1, 0], [-1, 0, 0], [0, 0, 1]],
+                               [[0, -1, 0], [1, 0, 0], [0, 0, 1]],
+                               [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+                               [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+                               [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+                               [[1, 0, 0], [0, 1, 0], [0, 0, 1]]]).float()
+    _RMB_Tpose = torch.eye(3).repeat(6, 1, 1)
 
     def __init__(self, udp_port=7777):
         super().__init__(udp_port)
@@ -94,7 +94,7 @@ class CalibratedIMUSet(IMUSet):
         self.RSB = torch.eye(3).repeat(self.N, 1, 1)
 
     def get(self):
-        t, RIS, aS, wS, mS, aI, wI, mI = super().get()
+        t, RIS, aS, wS, mS, aI, wI, mI = super(type(self), self).get()
         RMB = self.RMI.matmul(RIS).matmul(self.RSB)
         aM = self.RMI.matmul(aI.unsqueeze(-1)).squeeze(-1)
         wM = self.RMI.matmul(wI.unsqueeze(-1)).squeeze(-1)
@@ -152,12 +152,12 @@ class CalibratedIMUSet(IMUSet):
             self._input('Stand in T-pose and press enter. The calibration will start in 3 seconds.', skip_input)
             time.sleep(3)
             RIS = self.get()[1]
-            RSB = RMI.matmul(RIS).transpose(1, 2).matmul(self.RMB_Tpose[self.mask])
+            RSB = RMI.matmul(RIS).transpose(1, 2).matmul(self._RMB_Tpose[self.mask])
         elif RSB_method == 'npose':
             self._input('Stand in N-pose and press enter. The calibration will start in 3 seconds.', skip_input)
             time.sleep(3)
             RIS = self.get()[1]
-            RSB = RMI.matmul(RIS).transpose(1, 2).matmul(self.RMB_Npose[self.mask])
+            RSB = RMI.matmul(RIS).transpose(1, 2).matmul(self._RMB_Npose[self.mask])
 
         err = self._angle_from_two_vectors(RMI[:, :, 2], torch.tensor([0, -1, 0.]))
         if all(err < 8) or skip_input:
@@ -188,8 +188,8 @@ class CalibratedIMUSet(IMUSet):
         xI = self._normalize_tensor(yI.cross(zI, dim=-1))
         zI = self._normalize_tensor(xI.cross(yI, dim=-1))
         RMI = torch.stack([xI, yI, zI], dim=0).repeat(self.N, 1, 1)
-        RSB0 = RMI.matmul(RIS_N).transpose(1, 2).matmul(self.RMB_Npose[self.mask])
-        RSB1 = RMI.matmul(RIS_T).transpose(1, 2).matmul(self.RMB_Tpose[self.mask])
+        RSB0 = RMI.matmul(RIS_N).transpose(1, 2).matmul(self._RMB_Npose[self.mask])
+        RSB1 = RMI.matmul(RIS_T).transpose(1, 2).matmul(self._RMB_Tpose[self.mask])
         RSB = self._mean_rotation(RSB0, RSB1)
 
         err_forward = self._angle_from_two_vectors(zIs[0], zIs[1])
@@ -234,8 +234,8 @@ class CalibratedIMUSet(IMUSet):
         xI = self._normalize_tensor(yI.cross(zI, dim=-1))
         zI = self._normalize_tensor(xI.cross(yI, dim=-1))
         RMI = torch.stack([xI, yI, zI], dim=-2)
-        RSB0 = RMI.matmul(RIS_N0).transpose(1, 2).matmul(self.RMB_Npose[self.mask])
-        RSB1 = RMI.matmul(RIS_N1).transpose(1, 2).matmul(self.RMB_Npose[self.mask])
+        RSB0 = RMI.matmul(RIS_N0).transpose(1, 2).matmul(self._RMB_Npose[self.mask])
+        RSB1 = RMI.matmul(RIS_N1).transpose(1, 2).matmul(self._RMB_Npose[self.mask])
         RSB = self._mean_rotation(RSB0, RSB1)
 
         # import matplotlib.pyplot as plt
