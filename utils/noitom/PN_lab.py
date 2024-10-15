@@ -94,7 +94,7 @@ class CalibratedIMUSet(IMUSet):
         self.RSB = torch.eye(3).repeat(self.N, 1, 1)
 
     def get(self):
-        t, RIS, aS, wS, mS, aI, wI, mI = super(type(self), self).get()
+        t, RIS, aS, wS, mS, aI, wI, mI = super().get()
         RMB = self.RMI.matmul(RIS).matmul(self.RSB)
         aM = self.RMI.matmul(aI.unsqueeze(-1)).squeeze(-1)
         wM = self.RMI.matmul(wI.unsqueeze(-1)).squeeze(-1)
