@@ -7,6 +7,7 @@ __all__ = ['PointCloud3DViewer']
 
 
 import open3d as o3d
+import keyboard
 
 
 class PointCloud3DViewer:
@@ -70,18 +71,18 @@ class PointCloud3DViewer:
 
     def pause(self):
         r"""
-        Pause the viewer. You can control the camera during pausing.
+        Pause the viewer. You can control the camera during pausing. Use `q` to continue.
         """
-        while self.vis.poll_events():
-            pass
+        while True:
+            self.vis.poll_events()
+            if keyboard.is_pressed('q'):
+                break
 
 
 # example
 if __name__ == '__main__':
     import numpy as np
-    import time
     with PointCloud3DViewer() as viewer:
-        for i in range(1, 6):
-            viewer.update(np.random.randn(1000, 3) * i, reset_view_point=True)
-            time.sleep(1)
-        viewer.pause()
+        while True:
+            viewer.update(np.random.randn(1000, 3), reset_view_point=True)
+            viewer.pause()

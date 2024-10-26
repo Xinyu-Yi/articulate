@@ -424,3 +424,74 @@ class ParametricModel:
         """
         verts = self.forward_kinematics(pose.view(-1, len(self._J), 3, 3), tran=tran.view(-1, 3), calc_mesh=True)[2]
         self.view_mesh_overlay(verts, images, K, Tcw, fps)
+
+    def is_inside(self, points: torch.Tensor, vertices: torch.Tensor):
+        r"""
+        Check if the points are inside the model.
+        Modified from https://github.com/YuliangXiu/ICON/blob/master/lib/common/render_utils.py
+
+        Args
+        -----
+        :param points: Tensor in shape [num_point, 3].
+        :param vertices: Tensor in shape [num_vertex, 3].
+        :return: Bool tensor in shape [num_points].
+        """
+        centered_tris = vertices[None, self.face.astype(int)] - points[:, None, None]
+        norms = torch.norm(centered_tris, dim=-1)
+        cross_prod = torch.cross(centered_tris[:, :, 1], centered_tris[:, :, 2], dim=-1)
+        numerator = (centered_tris[:, :, 0] * cross_prod).sum(dim=-1)
+        dot01 = (centered_tris[:, :, 0] * centered_tris[:, :, 1]).sum(dim=-1)
+        dot12 = (centered_tris[:, :, 1] * centered_tris[:, :, 2]).sum(dim=-1)
+        dot02 = (centered_tris[:, :, 0] * centered_tris[:, :, 2]).sum(dim=-1)
+        denominator = norms.prod(dim=-1) + dot01 * norms[:, :, 2] + dot02 * norms[:, :, 1] + dot12 * norms[:, :, 0]
+        solid_angle = torch.atan2(numerator, denominator)
+        return (solid_angle.sum(dim=-1) / (2 * torch.pi)).round().bool()
+
+    def physical_properties(self, shape=None, res=0.02):
+        r"""
+        Compute the physical properties (mass, com, inertia) of the model.
+
+        Args
+        -----
+        :param shape: Tensor for model shape in [10]. Use None for the mean(zero) shape.
+        :param res: Resolution for mesh voxelization.
+        :return: Mass tensor in shape [num_joint],
+                 center of mass tensor in shape [num_joint, 3] expressed in the joint frame, and
+                 inertia tensor in shape [num_joint, 3, 3] expressed in the CoM frame.
+        """
+        from scipy.interpolate import LinearNDInterpolator
+        joint, vert = self.get_zero_pose_joint_and_vertex(shape)
+        joint = joint.squeeze(0)
+        vert = vert.squeeze(0)
+
+        # slice the mesh along x-axis and find inner points
+        point = []
+        for x in torch.arange(vert[:, 0].min(), vert[:, 0].max(), res):
+            v = vert[(vert[:, 0] - x).abs() < max(0.04, res)]
+            g = [x, torch.arange(v[:, 1].min(), v[:, 1].max(), res), torch.arange(v[:, 2].min(), v[:, 2].max(), res)]
+            g = torch.stack(torch.meshgrid(g, indexing='ij'), dim=-1).view(-1, 3).to(vert.device)
+            point.append(g[self.is_inside(g, vert)])
+        point = torch.cat(point)
+
+        # compute points' weighted mass seen from each joint
+        weight_fn = LinearNDInterpolator(vert.cpu(), self._skinning_weights.cpu())
+        weight = torch.from_numpy(weight_fn(point.cpu()).T).float().to(vert.device)
+        weighted_mass = weight * 1000 * res ** 3
+
+        # compute physical properties
+        mass = torch.einsum('ij->i', weighted_mass)
+        com = torch.einsum('ij,ijk->ik', weighted_mass, point[None] - joint[:, None]) / mass.unsqueeze(-1)
+        local_point_cross = M.vector_cross_matrix(point[None] - com[:, None]).view(len(joint), len(point), 3, 3)
+        inertia = torch.einsum('ij,ijkl->ikl', weighted_mass, -local_point_cross.matmul(local_point_cross))
+
+        # # visualization
+        # from articulate.utils.open3d import PointCloud3DViewer
+        # from articulate.utils.color import ColorBar
+        # colorbar = ColorBar()
+        # colorbar.show()
+        # with PointCloud3DViewer() as pcviewer:
+        #     for i in range(len(self._J)):
+        #         pcviewer.update(point.cpu(), colorbar(weight[i].cpu()), reset_view_point=True)
+        #         pcviewer.pause()
+
+        return mass, com, inertia
