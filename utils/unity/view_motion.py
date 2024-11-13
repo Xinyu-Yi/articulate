@@ -201,11 +201,82 @@ class MotionViewer:
         if render:
             self.render()
 
+    def clear_point(self, render=True):
+        r"""
+        Clear all points.
+
+        :param render: Render the frame after the line has been cleared.
+        """
+        assert self.conn is not None, 'MotionViewer is not connected.'
+        self.conn.send('p$'.encode('utf8'))
+        if render:
+            self.render()
+
+    def update_torque_all(self, torques: list, render=True):
+        r"""
+        Update all subject's torques together.
+
+        :param torques: List of torque tensor/ndarray that can all reshape to [24, 3] in the joint local frame.
+        :param render: Render the frame after all subjects have been updated.
+        """
+        assert len(torques) == self.n, 'Number of torques is not equal to the init value in MotionViewer.'
+        for i, torque in enumerate(torques):
+            self.update_torque(torque, i, render=False)
+        if render:
+            self.render()
+
+    def update_torque(self, torque, index=0, render=True):
+        r"""
+        Update the ith subject's joint torque.
+
+        :param torque: Tensor or ndarray that can reshape to [24, 3] for joint torque in the local frame.
+        :param index: The index of the subject to update.
+        :param render: Render the frame after the subject has been updated.
+        """
+        assert self.conn is not None, 'MotionViewer is not connected.'
+        torque = np.array(torque).reshape((24, 3))
+        s = 'T#' + \
+            str(index) + '#' + \
+            ','.join(['%g' % v for v in torque.ravel()]) + '$'
+        self.conn.send(s.encode('utf8'))
+        if render:
+            self.render()
+
+    def hide_torque(self, subject_index=0, render=True):
+        r"""
+        Hide all joint torques of a character.
+
+        :param subject_index: Subject index.
+        :param render: Render the frame after the subject has been updated.
+        """
+        assert self.conn is not None, 'MotionViewer is not connected.'
+        s = 't#' + str(subject_index) + '$'
+        self.conn.send(s.encode('utf8'))
+        if render:
+            self.render()
+
+    def show_torque(self, subject_index=0, joint_mask=None, render=True):
+        r"""
+        Show specific joint torques of a character.
+
+        :param subject_index: Subject index.
+        :param joint_mask: List of joint index to show the torque.
+        :param render: Render the frame after the subject has been updated.
+        """
+        assert self.conn is not None, 'MotionViewer is not connected.'
+        if joint_mask is None:
+            joint_mask = list(range(24))
+        s = 'M#' + str(subject_index) + '#' + ','.join(['%d' % v for v in joint_mask]) + '$'
+        self.conn.send(s.encode('utf8'))
+        if render:
+            self.render()
+
     def hide_character(self, subject_index=0, render=True):
         r"""
         Hide a character.
 
         :param subject_index: Subject index.
+        :param render: Render the frame after the subject has been updated.
         """
         assert self.conn is not None, 'MotionViewer is not connected.'
         s = 'H#' + str(subject_index) + '$'
@@ -218,21 +289,11 @@ class MotionViewer:
         Show a character.
 
         :param subject_index: Subject index.
+        :param render: Render the frame after the subject has been updated.
         """
         assert self.conn is not None, 'MotionViewer is not connected.'
         s = 'h#' + str(subject_index) + '$'
         self.conn.send(s.encode('utf8'))
-        if render:
-            self.render()
-
-    def clear_point(self, render=True):
-        r"""
-        Clear all points.
-
-        :param render: Render the frame after the line has been cleared.
-        """
-        assert self.conn is not None, 'MotionViewer is not connected.'
-        self.conn.send('p$'.encode('utf8'))
         if render:
             self.render()
 
