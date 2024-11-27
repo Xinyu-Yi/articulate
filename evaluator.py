@@ -126,7 +126,7 @@ class PositionErrorEvaluator:
         :param t: Tensor that can reshape to [n, dimension] that stands for n points.
         :return: Mean p-norm distance between all corresponding points.
         """
-        return (p.view(-1, self.dimension) - t.view(-1, self.dimension)).norm(p=self.p, dim=1).mean()
+        return (p - t).view(-1, self.dimension).norm(p=self.p, dim=1).mean()
 
 
 class RotationErrorEvaluator:
