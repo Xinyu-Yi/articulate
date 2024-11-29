@@ -10,7 +10,7 @@ __all__ = ['RotationRepresentation', 'to_rotation_matrix', 'radian_to_degree', '
            'quaternion_to_rotation_matrix', 'rotation_matrix_to_euler_angle', 'euler_angle_to_rotation_matrix',
            'rotation_matrix_to_euler_angle_np', 'euler_angle_to_rotation_matrix_np', 'euler_convert_np',
            'quaternion_product', 'quaternion_inverse', 'quaternion_mean', 'generate_random_rotation_matrix_constrained',
-           'quaternion_mean_robust', 'normalize_rotation_matrix']
+           'quaternion_mean_robust', 'normalize_rotation_matrix', 'from_to_rotation_matrix']
 
 
 from .general import *
@@ -199,6 +199,24 @@ def angle_from_two_vectors(v1, v2, signed=False):
         cross_product = torch.cross(v1, v2, dim=-1)
         angle[cross_product[:, 2] < 0] = -angle[cross_product[:, 2] < 0]
     return angle
+
+
+def from_to_rotation_matrix(from_vector: torch.Tensor, to_vector: torch.Tensor):
+    r"""
+    Get the rotation matrix that rotates from one vector to another. R * from_vector = to_vector. (torch, batch)
+
+    :param from_vector: From vector that can reshape to [batch_size, 3].
+    :param to_vector: To vector that can reshape to [batch_size, 3].
+    :return: Rotation matrix in shape [batch_size, 3, 3].
+    """
+    from_vector = normalize_tensor(from_vector.view(-1, 3))
+    to_vector = normalize_tensor(to_vector.view(-1, 3))
+    axis = normalize_tensor(torch.cross(from_vector, to_vector, dim=-1))
+    if torch.isnan(axis).any():
+        axis_alt = normalize_tensor(torch.cross(torch.randn_like(from_vector), to_vector, dim=-1))
+        axis[torch.isnan(axis)] = axis_alt[torch.isnan(axis)]
+    angle = (from_vector * to_vector).sum(dim=-1, keepdim=True).clip(-1, 1).acos()
+    return axis_angle_to_rotation_matrix(axis * angle)
 
 
 def svd_rotate(source_points: torch.Tensor, target_points: torch.Tensor, calc_R=True, calc_t=False, calc_s=False):

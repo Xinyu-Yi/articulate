@@ -5,7 +5,7 @@ r"""
 
 __all__ = ['BinaryConfusionMatrixEvaluator', 'BinaryClassificationErrorEvaluator', 'PositionErrorEvaluator',
            'RotationErrorEvaluator', 'PerJointErrorEvaluator', 'MeanPerJointErrorEvaluator', 'MeshErrorEvaluator',
-           'FullMotionEvaluator']
+           'FullMotionEvaluator', 'DirectionErrorEvaluator']
 
 
 from .model import ParametricModel
@@ -127,6 +127,40 @@ class PositionErrorEvaluator:
         :return: Mean p-norm distance between all corresponding points.
         """
         return (p - t).view(-1, self.dimension).norm(p=self.p, dim=1).mean()
+
+
+class DirectionErrorEvaluator:
+    r"""
+    Mean angle between two sets of vectors. Angles are in degrees.
+    """
+    def __init__(self, dimension=3):
+        r"""
+        Init a direction error evaluator.
+
+        Notes
+        -----
+        The two tensors being evaluated will be reshape to [n, dimension] and be regarded as n vectors.
+        Then the average angle between all corresponding vectors will be returned.
+
+        Args
+        -----
+        :param dimension: Dimension of the vector space. By default 3.
+        """
+        self.dimension = dimension
+
+    def __call__(self, p: torch.Tensor, t: torch.Tensor):
+        r"""
+        Get the mean angle between two sets of vectors.
+
+        :param p: Tensor that can reshape to [n, dimension] that stands for n vectors.
+        :param t: Tensor that can reshape to [n, dimension] that stands for n vectors.
+        :return: Mean angle in degrees between all corresponding vectors.
+        """
+        p = p.contiguous().view(-1, self.dimension)
+        t = t.contiguous().view(-1, self.dimension)
+        p = p / p.norm(2, dim=1, keepdim=True)
+        t = t / t.norm(2, dim=1, keepdim=True)
+        return radian_to_degree((p * t).sum(dim=1).clip(-1, 1).acos().mean())
 
 
 class RotationErrorEvaluator:
