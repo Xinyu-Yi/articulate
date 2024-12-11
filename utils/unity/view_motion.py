@@ -102,6 +102,40 @@ class MotionViewer:
         if render:
             self.render()
 
+    def draw_plane(self, position, normal, color=(0, 0, 0), size=1.0, render=True):
+        r"""
+        Draw a plane.
+
+        :param position: Tensor or ndarray that can reshape to [3] for the position.
+        :param normal: Tensor or ndarray that can reshape to [3] for the normal.
+        :param color: Tensor or ndarray that can reshape to [3] for RGB or [4] for RGBA in [0, 1].
+        :param size: Plane size.
+        :param render: Render the frame after the plane has been drawn.
+        """
+        assert self.conn is not None, 'MotionViewer is not connected.'
+        position = np.array(position)
+        normal = np.array(normal)
+        color = np.array(color)
+        s = 'F#' + \
+            ','.join(['%g' % v for v in position.ravel()]) + '#' + \
+            ','.join(['%g' % v for v in normal.ravel()]) + '#' + \
+            ','.join(['%g' % v for v in color.ravel()]) + '#' + \
+            str(size) + '$'
+        self.conn.send(s.encode('utf8'))
+        if render:
+            self.render()
+
+    def clear_plane(self, render=True):
+        r"""
+        Clear all planes.
+
+        :param render: Render the frame after the line has been cleared.
+        """
+        assert self.conn is not None, 'MotionViewer is not connected.'
+        self.conn.send('f$'.encode('utf8'))
+        if render:
+            self.render()
+
     def draw_line(self, start, end, color=(0, 0, 0), width=0.01, render=True):
         r"""
         Draw a line.
