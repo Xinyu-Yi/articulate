@@ -4,7 +4,7 @@ r"""
 
 
 __all__ = ['lerp', 'normalize_tensor', 'append_value', 'append_zero', 'append_one', 'vector_cross_matrix',
-           'vector_cross_matrix_np', 'block_diagonal_matrix_np']
+           'vector_cross_matrix_np', 'block_diagonal_matrix_np', 'hat', 'vee']
 
 
 import numpy as np
@@ -64,17 +64,8 @@ append_one = partial(append_value, value=1)
 
 
 def vector_cross_matrix(x: torch.Tensor):
-    r"""
-    Get the skew-symmetric matrix :math:`[v]_\times\in so(3)` for each vector3 `v`. (torch, batch)
-
-    :param x: Tensor that can reshape to [batch_size, 3].
-    :return: The skew-symmetric matrix in shape [batch_size, 3, 3].
-    """
-    x = x.view(-1, 3)
-    zeros = torch.zeros(x.shape[0], device=x.device)
-    return torch.stack((zeros, -x[:, 2], x[:, 1],
-                        x[:, 2], zeros, -x[:, 0],
-                        -x[:, 1], x[:, 0], zeros), dim=1).view(-1, 3, 3)
+    r"""vector_cross_matrix() is deprecated, use hat() instead"""
+    return hat(x.view(-1, 3))
 
 
 def vector_cross_matrix_np(x):
@@ -104,3 +95,26 @@ def block_diagonal_matrix_np(matrix2d_list):
         r += lr
         c += lc
     return ret
+
+
+def vee(m: torch.Tensor):
+    r"""
+    Return the 3D vector of the 3x3 skew-symmetric matrix. (torch, batch)
+
+    :param m: Tensor in shape [..., 3, 3].
+    :return: Tensor in shape [..., 3].
+    """
+    m = (m - m.transpose(-1, -2)) / 2
+    return torch.stack((m[..., 2, 1], m[..., 0, 2], m[..., 1, 0]), dim=-1)
+
+
+def hat(v: torch.Tensor):
+    r"""
+    Return the 3x3 skew-symmetric matrix of the 3D vector. (torch, batch)
+
+    :param v: Tensor in shape [..., 3].
+    :return: Tensor in shape [..., 3, 3].
+    """
+    return torch.stack((torch.zeros_like(v[..., 0]), -v[..., 2], v[..., 1],
+                        v[..., 2], torch.zeros_like(v[..., 0]), -v[..., 0],
+                        -v[..., 1], v[..., 0], torch.zeros_like(v[..., 0]),), dim=-1).view(*v.shape[:-1], 3, 3)

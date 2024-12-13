@@ -481,7 +481,7 @@ class ParametricModel:
         # compute physical properties
         mass = torch.einsum('ij->i', weighted_mass)
         com = torch.einsum('ij,ijk->ik', weighted_mass, point[None] - joint[:, None]) / mass.unsqueeze(-1)
-        local_point_cross = M.vector_cross_matrix(point[None] - com[:, None]).view(len(joint), len(point), 3, 3)
+        local_point_cross = M.hat(point[None] - com[:, None])
         inertia = torch.einsum('ij,ijkl->ikl', weighted_mass, -local_point_cross.matmul(local_point_cross))
 
         # # visualization

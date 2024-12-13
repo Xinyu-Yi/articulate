@@ -307,7 +307,7 @@ def axis_angle_to_rotation_matrix(a: torch.Tensor):
     axis[torch.isnan(axis) | torch.isinf(axis)] = 0
     i_cube = torch.eye(3, device=a.device).expand(angle.shape[0], 3, 3)
     c, s = angle.cos().view(-1, 1, 1), angle.sin().view(-1, 1, 1)
-    r = c * i_cube + (1 - c) * torch.bmm(axis.view(-1, 3, 1), axis.view(-1, 1, 3)) + s * vector_cross_matrix(axis)
+    r = c * i_cube + (1 - c) * torch.bmm(axis.view(-1, 3, 1), axis.view(-1, 1, 3)) + s * hat(axis)
     return r
 
 
