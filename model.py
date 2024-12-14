@@ -86,12 +86,12 @@ class ParametricModel:
                  if shape is not None. Otherwise [num_joint, 3] and [num_vertex, 3] assuming the mean(zero) shape.
         """
         if shape is None:
-            j, v = self._J - self._J[:1], self._v_template - self._J[:1]
+            j, v = self._J - self._J[:1], (self._v_template if self.vert_mask is None else self._v_template[self.vert_mask, :]) - self._J[:1]
         else:
             shape = shape.view(-1, 10)
             v = torch.tensordot(shape, self._shapedirs, dims=([1], [2])) + self._v_template
             j = torch.matmul(self._J_regressor, v)
-            j, v = j - j[:, :1], v - j[:, :1]
+            j, v = j - j[:, :1], (v if self.vert_mask is None else v[:, self.vert_mask]) - j[:, :1]
         return j, v
 
     def bone_vector_to_joint_position(self, bone_vec: torch.Tensor):
@@ -234,8 +234,6 @@ class ParametricModel:
         if calc_mesh is False:
             return pose_global, add_tran(joint_global)
 
-        if self.vert_mask is not None:
-            v = v[:, self.vert_mask, :]
         if self.use_pose_blendshape:
             r = (pose[:, 1:] - torch.eye(3, device=pose.device)).flatten(1)
             posedirs = self._posedirs if self.vert_mask is None else self._posedirs[self.vert_mask, :, :]
@@ -327,12 +325,15 @@ class ParametricModel:
         :param fps: Sequence FPS.
         :param distance_between_subjects: Distance in meters between subjects. 0.2 for hand and 0.8 for body is good.
         """
+        vert_mask = self.vert_mask
+        self.vert_mask = None
         verts = []
         for i in range(len(pose_list)):
             pose = pose_list[i].view(-1, len(self.parent), 3, 3)
             tran = tran_list[i].view(-1, 3) - tran_list[i].view(-1, 3)[:1] if tran_list else None
             verts.append(self.forward_kinematics(pose, tran=tran, calc_mesh=True)[2])
         self.view_mesh(verts, fps, distance_between_subjects=distance_between_subjects)
+        self.vert_mask = vert_mask
 
     def view_mesh_overlay(self, verts, images, K, Tcw=torch.eye(4), fps=60):
         r"""
@@ -420,8 +421,11 @@ class ParametricModel:
         :param Tcw: Camera extrinsic tensor in shape [4, 4].
         :param fps: Sequence FPS.
         """
+        vert_mask = self.vert_mask
+        self.vert_mask = None
         verts = self.forward_kinematics(pose.view(-1, len(self._J), 3, 3), tran=tran.view(-1, 3), calc_mesh=True)[2]
         self.view_mesh_overlay(verts, images, K, Tcw, fps)
+        self.vert_mask = vert_mask
 
     def is_inside(self, points: torch.Tensor, vertices: torch.Tensor):
         r"""
@@ -458,9 +462,12 @@ class ParametricModel:
                  inertia tensor in shape [num_joint, 3, 3] expressed in the CoM frame.
         """
         from scipy.interpolate import LinearNDInterpolator
+        vert_mask = self.vert_mask
+        self.vert_mask = None
         joint, vert = self.get_zero_pose_joint_and_vertex(shape)
         joint = joint.squeeze(0)
         vert = vert.squeeze(0)
+        self.vert_mask = vert_mask
 
         # slice the mesh along x-axis and find inner points
         point = []
