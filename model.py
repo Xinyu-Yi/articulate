@@ -39,13 +39,7 @@ class ParametricModel:
         self.parent = data['kintree_table'][0].tolist()
         self.parent[0] = None
         self.use_pose_blendshape = use_pose_blendshape
-
-        if vert_mask is not None:
-            self._J_regressor = self._J_regressor[:, vert_mask].clone()
-            self._skinning_weights = self._skinning_weights[vert_mask, :].clone()
-            self._posedirs = self._posedirs[vert_mask, :, :].clone()
-            self._shapedirs = self._shapedirs[vert_mask, :, :].clone()
-            self._v_template = self._v_template[vert_mask, :].clone()
+        self.vert_mask = vert_mask
 
     def save_obj_mesh(self, vertex_position, file_name='a.obj'):
         r"""
@@ -240,11 +234,15 @@ class ParametricModel:
         if calc_mesh is False:
             return pose_global, add_tran(joint_global)
 
-        T_global[..., -1:] -= torch.matmul(T_global, M.append_zero(j, dim=-1).unsqueeze(-1))
-        T_vertex = torch.tensordot(T_global, self._skinning_weights, dims=([1], [1])).permute(0, 3, 1, 2)
+        if self.vert_mask is not None:
+            v = v[:, self.vert_mask, :]
         if self.use_pose_blendshape:
             r = (pose[:, 1:] - torch.eye(3, device=pose.device)).flatten(1)
-            v = v + torch.tensordot(r, self._posedirs, dims=([1], [2]))
+            posedirs = self._posedirs if self.vert_mask is None else self._posedirs[self.vert_mask, :, :]
+            v = v + torch.tensordot(r, posedirs, dims=([1], [2]))
+        T_global[..., -1:] -= torch.matmul(T_global, M.append_zero(j, dim=-1).unsqueeze(-1))
+        skinning_weights = self._skinning_weights if self.vert_mask is None else self._skinning_weights[self.vert_mask, :]
+        T_vertex = torch.tensordot(T_global, skinning_weights, dims=([1], [1])).permute(0, 3, 1, 2)
         vertex_global = torch.matmul(T_vertex, M.append_one(v, dim=-1).unsqueeze(-1)).squeeze(-1)[..., :3]
         return pose_global, add_tran(joint_global), add_tran(vertex_global)
 
@@ -466,9 +464,9 @@ class ParametricModel:
 
         # slice the mesh along x-axis and find inner points
         point = []
-        for x in torch.arange(vert[:, 0].min(), vert[:, 0].max(), res):
+        for x in torch.arange(vert[:, 0].min().item(), vert[:, 0].max().item(), res):
             v = vert[(vert[:, 0] - x).abs() < max(0.04, res)]
-            g = [x, torch.arange(v[:, 1].min(), v[:, 1].max(), res), torch.arange(v[:, 2].min(), v[:, 2].max(), res)]
+            g = [x, torch.arange(v[:, 1].min().item(), v[:, 1].max().item(), res), torch.arange(v[:, 2].min().item(), v[:, 2].max().item(), res)]
             g = torch.stack(torch.meshgrid(g, indexing='ij'), dim=-1).view(-1, 3).to(vert.device)
             point.append(g[self.is_inside(g, vert)])
         point = torch.cat(point)
