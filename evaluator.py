@@ -58,7 +58,7 @@ class BinaryConfusionMatrixEvaluator:
         fn = ((p == negative) & (t == positive)).sum()
         fp = ((p == positive) & (t == negative)).sum()
         tn = ((p == negative) & (t == negative)).sum()
-        return torch.tensor([[tp, fn], [fp, tn]])
+        return torch.tensor([[tp, fn], [fp, tn]], device=p.device)
 
 
 class BinaryClassificationErrorEvaluator(BinaryConfusionMatrixEvaluator):
@@ -94,7 +94,7 @@ class BinaryClassificationErrorEvaluator(BinaryConfusionMatrixEvaluator):
 
         return torch.tensor([[precision_positive, precision_negative],
                              [recall_positive, recall_negative],
-                             [f1_positive, f1_negative]])
+                             [f1_positive, f1_negative]], device=p.device)
 
 
 class PositionErrorEvaluator:
