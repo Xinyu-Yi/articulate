@@ -125,6 +125,30 @@ class MotionViewer:
         if render:
             self.render()
 
+    def draw_plane_from_joint(self, subject_index, joint_index, normal, color=(0, 0, 0), size=1.0, render=True):
+        r"""
+        Draw a plane from a joint.
+
+        :param subject_index: Subject index to determine the joint.
+        :param joint_index: Joint index for the plane position.
+        :param normal: Tensor or ndarray that can reshape to [3] for the normal.
+        :param color: Tensor or ndarray that can reshape to [3] for RGB or [4] for RGBA in [0, 1].
+        :param size: Plane size.
+        :param render: Render the frame after the plane has been drawn.
+        """
+        assert self.conn is not None, 'MotionViewer is not connected.'
+        normal = np.array(normal)
+        color = np.array(color)
+        s = 'G#' + \
+            str(subject_index) + '#' + \
+            str(joint_index) + '#' + \
+            ','.join(['%g' % v for v in normal.ravel()]) + '#' + \
+            ','.join(['%g' % v for v in color.ravel()]) + '#' + \
+            str(size) + '$'
+        self.conn.send(s.encode('utf8'))
+        if render:
+            self.render()
+
     def clear_plane(self, render=True):
         r"""
         Clear all planes.
@@ -327,6 +351,40 @@ class MotionViewer:
         """
         assert self.conn is not None, 'MotionViewer is not connected.'
         s = 'h#' + str(subject_index) + '$'
+        self.conn.send(s.encode('utf8'))
+        if render:
+            self.render()
+
+    def instantiate(self, prefab_index, name, position=(0, 0, 0), render=True):
+        r"""
+        Instantiate a prefab.
+
+        :param prefab_index: Prefab index.
+        :param name: Name of the instance.
+        :param position: Tensor or ndarray that can reshape to [3] for the prefab position.
+        :param render: Render the frame after the prefab has been instantiated.
+        """
+        assert self.conn is not None, 'MotionViewer is not connected.'
+        assert all(c.isalnum() or c == '_' for c in str(name)), 'name should only contains numbers, letters, or _.'
+        position = np.array(position)
+        s = 'I#' + \
+            str(prefab_index) + '#' + \
+            str(name) + '#' + \
+            ','.join(['%g' % v for v in position.ravel()]) + '$'
+        self.conn.send(s.encode('utf8'))
+        if render:
+            self.render()
+
+    def destroy(self, name, render=True):
+        r"""
+        Destroy a prefab instance.
+
+        :param name: Name of the instance.
+        :param render: Render the frame after the prefab has been instantiated.
+        """
+        assert self.conn is not None, 'MotionViewer is not connected.'
+        s = 'i#' + \
+            str(name) + '$'
         self.conn.send(s.encode('utf8'))
         if render:
             self.render()
