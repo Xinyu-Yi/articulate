@@ -3,3 +3,5 @@ r"""
 """
 
 from .simulation import *
+from .magnetometer_calibrator import *
+from .accelerometer_calibrator import *
