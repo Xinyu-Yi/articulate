@@ -36,7 +36,7 @@ class Vector3Viewer:
         r"""
         Connect to the viewer.
         """
-        self.vis = o3d.visualization.Visualizer()
+        self.vis = o3d.visualization.VisualizerWithKeyCallback()
         self.vis.create_window(window_name='Vector3 Viewer', width=self.width, height=self.height)
 
     def disconnect(self):
@@ -84,6 +84,9 @@ class Vector3Viewer:
         :param vectors: 3D vectors in shape [N, 3].
         :param colors: Vector colors in shape [N, 3].
         """
+        if self.vis is None:
+            print('[Error] Vector3Viewer is not connected.')
+            return
         self.vis.clear_geometries()
         self.vis.add_geometry(o3d.geometry.TriangleMesh.create_coordinate_frame())
         for i in range(vectors.shape[0]):
@@ -94,10 +97,19 @@ class Vector3Viewer:
 
     def pause(self):
         r"""
-        Pause the viewer. You can control the camera during pausing.
+        Pause the viewer. You can control the camera during pausing. Use `q` to continue.
         """
-        while self.vis.poll_events():
-            pass
+        paused = [True]
+
+        def key_callback(vis):
+            nonlocal paused
+            paused[0] = False
+            return True
+
+        self.vis.register_key_callback(81, key_callback)
+        print('Vector3Viewer is paused. Press Q to continue.')
+        while paused[0]:
+            self.vis.poll_events()
 
 
 # example

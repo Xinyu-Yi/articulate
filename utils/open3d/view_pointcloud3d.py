@@ -7,7 +7,6 @@ __all__ = ['PointCloud3DViewer']
 
 
 import open3d as o3d
-import keyboard
 
 
 class PointCloud3DViewer:
@@ -37,7 +36,7 @@ class PointCloud3DViewer:
         Connect to the viewer.
         """
         self.pc = o3d.geometry.PointCloud()
-        self.vis = o3d.visualization.Visualizer()
+        self.vis = o3d.visualization.VisualizerWithKeyCallback()
         self.vis.create_window(window_name='PointCloud3D Viewer', width=self.width, height=self.height)
         self.vis.add_geometry(o3d.geometry.TriangleMesh.create_coordinate_frame())
         self.vis.add_geometry(self.pc)
@@ -61,6 +60,9 @@ class PointCloud3DViewer:
         :param colors: Point color in shape [N, 3].
         :param reset_view_point: Whether to reset the camera view to capture all the points.
         """
+        if self.vis is None:
+            print('[Error] PointCloud3DViewer is not connected.')
+            return
         self.pc.points = o3d.utility.Vector3dVector(points)
         if colors is not None:
             self.pc.colors = o3d.utility.Vector3dVector(colors)
@@ -73,10 +75,17 @@ class PointCloud3DViewer:
         r"""
         Pause the viewer. You can control the camera during pausing. Use `q` to continue.
         """
-        while True:
+        paused = [True]
+
+        def key_callback(vis):
+            nonlocal paused
+            paused[0] = False
+            return True
+
+        self.vis.register_key_callback(81, key_callback)
+        print('PointCloud3DViewer is paused. Press Q to continue.')
+        while paused[0]:
             self.vis.poll_events()
-            if keyboard.is_pressed('q'):
-                break
 
 
 # example

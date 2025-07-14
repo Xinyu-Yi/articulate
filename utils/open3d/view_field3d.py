@@ -36,7 +36,7 @@ class Field3DViewer:
         r"""
         Connect to the viewer.
         """
-        self.vis = o3d.visualization.Visualizer()
+        self.vis = o3d.visualization.VisualizerWithKeyCallback()
         self.vis.create_window(window_name='Field3D Viewer', width=self.width, height=self.height)
 
     def disconnect(self):
@@ -84,6 +84,9 @@ class Field3DViewer:
         :param field: 3D field in shape [X, Y, Z, 3].
         :param color: Field color in shape [X, Y, Z, 3].
         """
+        if self.vis is None:
+            print('[Error] Field3DViewer is not connected.')
+            return
         self.vis.clear_geometries()
         self.vis.add_geometry(o3d.geometry.TriangleMesh.create_coordinate_frame())
         for i in range(field.shape[0]):
@@ -96,10 +99,19 @@ class Field3DViewer:
 
     def pause(self):
         r"""
-        Pause the viewer. You can control the camera during pausing.
+        Pause the viewer. You can control the camera during pausing. Use `q` to continue.
         """
-        while self.vis.poll_events():
-            pass
+        paused = [True]
+
+        def key_callback(vis):
+            nonlocal paused
+            paused[0] = False
+            return True
+
+        self.vis.register_key_callback(81, key_callback)
+        print('Field3DViewer is paused. Press Q to continue.')
+        while paused[0]:
+            self.vis.poll_events()
 
 
 # example

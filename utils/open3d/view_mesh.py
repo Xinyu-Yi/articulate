@@ -35,7 +35,7 @@ class MeshViewer:
         r"""
         Connect to the viewer.
         """
-        self.vis = o3d.visualization.Visualizer()
+        self.vis = o3d.visualization.VisualizerWithKeyCallback()
         self.vis.create_window(window_name='Mesh Viewer', width=self.width, height=self.height)
 
     def disconnect(self):
@@ -48,7 +48,7 @@ class MeshViewer:
         self.vis = None
         self.first_update = True
 
-    def update(self, vertices, faces, colors=None):
+    def update(self, vertices_list, faces_list, colors=None):
         r"""
         Update the viewer.
 
@@ -56,14 +56,22 @@ class MeshViewer:
         :param faces: List of numpy arrays in shape [M, 3] for face indices of multiple meshes.
         :param colors: List of RGB float colors of multiple meshes, in range (0, 1).
         """
+        if self.vis is None:
+            print('[Error] MeshViewer is not connected.')
+            return
+        
+        if len(vertices_list) != len(faces_list):
+            print('[Error] vertices_list and faces_list lengths are not equal. Did you forget the batch dimension?')
+            return
+
         if colors is None:
-            colors = [np.array([0.5, 0.5, 0.5])] * len(vertices)
+            colors = [np.array([0.5, 0.5, 0.5])] * len(vertices_list)
 
         self.vis.clear_geometries()
-        for v, f, c in zip(vertices, faces, colors):
+        for v, f, c in zip(vertices_list, faces_list, colors):
             mesh = o3d.geometry.TriangleMesh()
-            mesh.vertices = o3d.utility.Vector3dVector(v)
-            mesh.triangles = o3d.utility.Vector3iVector(f)
+            mesh.vertices = o3d.utility.Vector3dVector(np.array(v).reshape(-1, 3))
+            mesh.triangles = o3d.utility.Vector3iVector(np.array(f).reshape(-1, 3))
             mesh.compute_vertex_normals()
             mesh.paint_uniform_color(c)
             self.vis.add_geometry(mesh, reset_bounding_box=self.first_update)
@@ -74,10 +82,19 @@ class MeshViewer:
 
     def pause(self):
         r"""
-        Pause the viewer. You can control the camera during pausing.
+        Pause the viewer. You can control the camera during pausing. Use `q` to continue.
         """
-        while self.vis.poll_events():
-            pass
+        paused = [True]
+
+        def key_callback(vis):
+            nonlocal paused
+            paused[0] = False
+            return True
+
+        self.vis.register_key_callback(81, key_callback)
+        print('MeshViewer is paused. Press Q to continue.')
+        while paused[0]:
+            self.vis.poll_events()
 
 
 # example
