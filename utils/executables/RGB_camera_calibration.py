@@ -13,10 +13,6 @@ wh = (1280, 720)
 pattern_size = (9, 6)
 save_dir = 'captured_pics/'
 
-cv2.namedWindow('Camera View', 0)
-cv2.namedWindow('Captured Image', 0)
-cv2.imshow('Captured Image', np.zeros(wh + (3,)))
-
 cap = cv2.VideoCapture(0)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, wh[0])
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, wh[1])
