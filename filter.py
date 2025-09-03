@@ -7,7 +7,6 @@ __all__ = ['LowPassFilter', 'LowPassFilterRotation', 'KalmanFilter']
 
 
 from . import math as M
-import quaternion     # package: numpy-quaternion
 import torch
 
 
@@ -127,6 +126,7 @@ class LowPassFilterRotation(LowPassFilter):
 
         :param x: Tensor that can reshape to [n, 3, 3] for rotation matrices.
         """
+        import quaternion     # package: numpy-quaternion
         qs = quaternion.from_rotation_matrix(x.detach().cpu().numpy(), nonorthogonal=True).ravel()
         if self.x is None:
             self.x = qs
